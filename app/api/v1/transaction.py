@@ -18,11 +18,13 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 @router.post("/", response_model=TransactionOut)
 async def create_transaction_endpoint(
-    transaction: TransactionCreate,
+    transaction_in: TransactionCreate,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_current_user),
 ):
-    return await create_transaction(db, transaction, user.id)
+    transaction = await create_transaction(db, transaction_in, user.id)
+
+    return transaction
 
 
 @router.get("/{transaction_id}", response_model=TransactionOut)

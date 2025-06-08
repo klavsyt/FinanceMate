@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from app.db.models.transaction import Transaction
 from app.schemas.transaction import TransactionCreate, TransactionUpdate
 from app.db.models.user import User
+from app.tasks.budget import check_budget_limit
 
 
 async def create_transaction(
@@ -13,6 +14,8 @@ async def create_transaction(
     db.add(new_transaction)
     await db.commit()
     await db.refresh(new_transaction)
+
+    check_budget_limit.delay(user_id, transaction.category_id)
     return new_transaction
 
 
