@@ -22,6 +22,25 @@ async def create_category(
             detail="Категория с таким именем уже существует",
         )
 
+    if category_in.parent_id is not None:
+        parent_result = await db.execute(
+            select(Category).where(
+                Category.id == category_in.parent_id, Category.user_id == user.id
+            )
+        )
+        parent_category = parent_result.scalar_one_or_none()
+        if not parent_category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Родительская категория не найдена",
+            )
+
+        if not parent_category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Родительская категория не найдена",
+            )
+        category_in.parent_id = parent_category.id
     category = Category(**category_in.model_dump(), user_id=user.id)
     db.add(category)
     await db.commit()
