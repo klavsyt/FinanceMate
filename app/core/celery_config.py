@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 
 celery_app = Celery(
@@ -8,5 +9,14 @@ celery_app = Celery(
 )
 
 celery_app.conf.task_routes = {
-    "app.services.task.budget": {"queue": "budgets"},
+    "app.tasks.budget": {"queue": "budgets"},
+    "app.tasks.exchangerate": {"queue": "exchangerates"},
+}
+
+
+celery_app.conf.beat_schedule = {
+    "update_exchange_rates": {
+        "task": "app.tasks.exchangerate.update_exchange_rates",
+        "schedule": crontab(minute=0, hour="*"),
+    },
 }

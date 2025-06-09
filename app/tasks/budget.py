@@ -3,11 +3,13 @@ from app.db.models.notification import Notification
 from app.db.models.transaction import Transaction
 from app.db.models.budget import Budget
 from sqlalchemy import func, select
+from celery import shared_task
+
 
 from app.core.celery_config import celery_app
 
 
-@celery_app.task
+@shared_task
 def check_budget_limit(user_id: int, category_id: int):
     db = SessionLocal()
     try:
@@ -35,9 +37,21 @@ def check_budget_limit(user_id: int, category_id: int):
             total_spent = Decimal(str(total_spent))
 
         limit = Decimal(str(budget.limit))
+        currency = budget.currency
+        # Явно подгружаем категорию, если не подгружена
+        category_name = None
+        if budget.category and getattr(budget.category, "name", None):
+            category_name = budget.category.name
+        else:
+            from app.db.models.category import Category
+
+            cat = db.execute(
+                select(Category.name).where(Category.id == budget.category_id)
+            ).scalar_one_or_none()
+            category_name = cat if cat else category_id
         # 3. Если превысил — создаём уведомление
         if total_spent > limit:
-            message = f"Превышен лимит по категории {category_id}: потрачено {total_spent}, лимит {budget.limit}"
+            message = f"Превышен лимит по категории '{category_name}': потрачено {total_spent:.2f} {currency}, лимит {limit:.2f} {currency}"
             notification = Notification(user_id=user_id, message=message)
             db.add(notification)
             db.commit()

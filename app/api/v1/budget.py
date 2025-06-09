@@ -26,13 +26,15 @@ async def create_budget_endpoint(
 
 @router.get("/", response_model=list[BudgetOut])
 async def get_user_budgets_endpoint(
+    limit: int = 20,
+    offset: int = 0,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user),
 ):
     """
     Get all budgets for the current user.
     """
-    return await get_budget_by_user(db, current_user.id)
+    return await get_budget_by_user(db, current_user.id, limit=limit, offset=offset)
 
 
 @router.put("/{budget_id}/", response_model=BudgetOut)
@@ -57,11 +59,19 @@ async def delete_budget_endpoint(
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Delete a budget by ID.
-    """
+    import logging
+
+    print(
+        f"[DEBUG] delete_budget_endpoint called: budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}, username={getattr(current_user, 'username', None)}"
+    )
+    logging.warning(
+        f"[DEBUG] delete_budget_endpoint called: budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}, username={getattr(current_user, 'username', None)}"
+    )
     deleted_budget = await delete_budget(db, budget_id, current_user.id)
     if not deleted_budget:
+        logging.warning(
+            f"[DEBUG] endpoint: NOT FOUND budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}"
+        )
         raise HTTPException(status_code=404, detail="Бюджет не найден")
     return deleted_budget
 

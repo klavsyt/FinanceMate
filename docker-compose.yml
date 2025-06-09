@@ -40,5 +40,17 @@ services:
       - redis
       - app
 
+  celery-beat:
+    build: .
+    command: celery -A app.worker beat --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - app
+
 volumes:
   db_data:

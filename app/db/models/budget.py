@@ -24,6 +24,7 @@ class Budget(Base):
     period: Mapped[BudgetType] = mapped_column(
         SQLAlchemyEnum(BudgetType), nullable=False
     )
+    currency: Mapped[str] = mapped_column(nullable=False, default="RUB")
 
     user = relationship("User", back_populates="budgets")
     category = relationship("Category")

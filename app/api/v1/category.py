@@ -34,13 +34,15 @@ async def create_category_endpoint(
 
 @router.get("/", response_model=list[CategoryRead])
 async def get_user_categories_endpoint(
+    limit: int = 20,
+    offset: int = 0,
     db: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user),
 ):
     """
     Get all categories for the current user.
     """
-    return await get_user_categories(db, current_user)
+    return await get_user_categories(db, current_user, limit=limit, offset=offset)
 
 
 @router.put("/{category_id}/", response_model=CategoryRead)

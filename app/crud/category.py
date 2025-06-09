@@ -1,10 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
+import logging
 
 from app.db.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
 from app.db.models.user import User
+
+logger = logging.getLogger("financemate")
 
 
 async def create_category(
@@ -45,11 +48,18 @@ async def create_category(
     db.add(category)
     await db.commit()
     await db.refresh(category)
+    logger.info(
+        f"User {user.id} created category {category.id} (name: {category.name}, type: {category.type}, parent_id: {category.parent_id})"
+    )
     return category
 
 
-async def get_user_categories(db: AsyncSession, user: User) -> list[Category]:
-    result = await db.execute(select(Category).where(Category.user_id == user.id))
+async def get_user_categories(
+    db: AsyncSession, user: User, limit: int = 20, offset: int = 0
+) -> list[Category]:
+    result = await db.execute(
+        select(Category).where(Category.user_id == user.id).limit(limit).offset(offset)
+    )
     return list(result.scalars().all())
 
 
@@ -68,6 +78,9 @@ async def update_category(
 
     await db.commit()
     await db.refresh(category)
+    logger.info(
+        f"User {user.id} updated category {category.id} (name: {category.name}, type: {category.type}, parent_id: {category.parent_id})"
+    )
     return category
 
 
@@ -82,4 +95,5 @@ async def delete_category(db: AsyncSession, category_id: int, user: User) -> boo
 
     await db.delete(category)
     await db.commit()
+    logger.info(f"User {user.id} deleted category {category_id}")
     return True
