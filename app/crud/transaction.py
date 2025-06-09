@@ -35,6 +35,11 @@ async def update_transaction(
 
     await db.commit()
     await db.refresh(existing_transaction)
+
+    check_budget_limit.delay(
+        existing_transaction.user_id, existing_transaction.category_id
+    )
+
     return existing_transaction
 
 

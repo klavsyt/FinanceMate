@@ -27,3 +27,13 @@ class BudgetOut(BudgetBase):
 
     class Config:
         from_attributes = True
+
+
+class BudgetAnalyticsOut(BaseModel):
+    budget_id: int
+    category_id: int
+    period: str
+    limit: float
+    spent: float
+    remaining: float
+    is_exceeded: bool
