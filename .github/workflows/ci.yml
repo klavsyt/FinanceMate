@@ -1,102 +1,123 @@
-name: CI
+name: CI with Docker, Alembic, and Pytest
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [main, develop]
   pull_request:
-    branches: [ master, main ]
+    branches: [main, develop]
+
+env:
+  DOCKER_COMPOSE_VERSION: "v2.24.5"
+  PYTHON_VERSION: "3.12"
+
+  # Production DB (для основного приложения)
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/finance_db
+  SYNC_DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/finance_db
+  SECRET_KEY: asdasdasdsad
+  ALGORITHM: HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES: 30
+  REFRESH_TOKEN_EXPIRE_DAYS: 5
+  REDIS_URL: redis://redis:6379/0
+  CORS_ORIGINS: "http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173"
+
+  # Test DB (для pytest)
+  TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@test_db:5432/finance_db_test
+  TEST_SYNC_DATABASE_URL: postgresql+psycopg2://postgres:postgres@test_db:5432/finance_db_test
+  TEST_SECRET_KEY: testsecret
+  TEST_ALGORITHM: HS256
+  TEST_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+  TEST_REFRESH_TOKEN_EXPIRE_DAYS: 5
+  TEST_REDIS_URL: redis://redis:6379/1  # Используем другую БД Redis для тестов
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+
     services:
-      db_test:
+      # Основная БД
+      db:
         image: postgres:15
         env:
-          POSTGRES_DB: finance_db_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: finance_db
         ports:
-          - 5433:5432
+          - "5432:5432"
         options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Тестовая БД
+      test_db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: finance_db_test
+        ports:
+          - "5433:5432"
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Redis (основной и тестовый используют разные номера БД)
       redis:
         image: redis:7
         ports:
-          - 6379:6379
+          - "6379:6379"
         options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        run: pip install poetry
 
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v3
+      - name: Cache dependencies
+        uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/pypoetry
-            .venv
-          key: poetry-${{ hashFiles('pyproject.toml') }}
+            ~/.cache/pypoetry/virtualenvs/
+            ~/.cache/pypoetry/artifacts/
+          key: poetry-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
 
       - name: Install dependencies
-        run: |
-          poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-root
 
-      - name: Create .env file with test variables
+      - name: Set up Docker Compose
         run: |
-          cat <<EOF > .env
-          SECRET_KEY=testsecret
-          ALGORITHM=HS256
-          ACCESS_TOKEN_EXPIRE_MINUTES=30
-          REFRESH_TOKEN_EXPIRE_DAYS=5
-          REDIS_URL=redis://localhost:6379/0
-          TEST_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/finance_db_test
-          TEST_SYNC_DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5433/finance_db_test
-          EOF
+          curl -fsSL https://github.com/docker/compose/releases/download/${{ env.DOCKER_COMPOSE_VERSION }}/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
 
-      - name: Create .env.test file with test variables
-        run: |
-          cat <<EOF > .env.test
-          SECRET_KEY=testsecret
-          ALGORITHM=HS256
-          ACCESS_TOKEN_EXPIRE_MINUTES=30
-          REFRESH_TOKEN_EXPIRE_DAYS=5
-          REDIS_URL=redis://localhost:6379/0
-          TEST_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/finance_db_test
-          TEST_SYNC_DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5433/finance_db_test
-          EOF
+      - name: Build and start containers
+        run: docker-compose up -d --build
 
-      - name: Wait for services
-        run: |
-          echo "Waiting for services to be ready..."
-          for i in {1..60}; do
-            nc -z localhost 5433 && nc -z localhost 6379 && echo "All services are ready!" && exit 0
-            echo "Waiting for localhost:5433 and localhost:6379..."
-            sleep 2
-          done
-          echo "Timeout waiting for services!" && exit 1
+      - name: Apply migrations to main DB
+        run: docker-compose exec app alembic upgrade head
 
-      - name: Run Alembic migrations for test DB
-        run: |
-          poetry run alembic upgrade head
+      - name: Apply migrations to test DB
+        run: docker-compose exec app bash -c 'DATABASE_URL=$TEST_DATABASE_URL alembic upgrade head'
 
       - name: Run tests
         run: |
-          poetry run pytest tests
+          poetry run pytest
+
+      - name: Debug (опционально)
+        if: always()
+        run: |
+          docker-compose ps
+          docker-compose logs app
