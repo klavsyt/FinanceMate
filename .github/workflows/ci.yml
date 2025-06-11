@@ -10,31 +10,30 @@ env:
   DOCKER_COMPOSE_VERSION: "v2.24.5"
   PYTHON_VERSION: "3.12"
 
-  # Production DB (для основного приложения)
-  DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/finance_db
-  SYNC_DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/finance_db
-  SECRET_KEY: asdasdasdsad
-  ALGORITHM: HS256
-  ACCESS_TOKEN_EXPIRE_MINUTES: 30
-  REFRESH_TOKEN_EXPIRE_DAYS: 5
-  REDIS_URL: redis://redis:6379/0
+  # Production environment
+  DATABASE_URL: "postgresql+asyncpg://postgres:postgres@db:5432/finance_db"
+  SYNC_DATABASE_URL: "postgresql+psycopg2://postgres:postgres@db:5432/finance_db"
+  SECRET_KEY: "your-production-secret-key"  # Замените на реальный или используйте secrets
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REFRESH_TOKEN_EXPIRE_DAYS: "5"
+  REDIS_URL: "redis://redis:6379/0"
   CORS_ORIGINS: "http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173"
 
-  # Test DB (для pytest)
-  TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@test_db:5432/finance_db_test
-  TEST_SYNC_DATABASE_URL: postgresql+psycopg2://postgres:postgres@test_db:5432/finance_db_test
-  TEST_SECRET_KEY: testsecret
-  TEST_ALGORITHM: HS256
-  TEST_ACCESS_TOKEN_EXPIRE_MINUTES: 30
-  TEST_REFRESH_TOKEN_EXPIRE_DAYS: 5
-  TEST_REDIS_URL: redis://redis:6379/1  # Используем другую БД Redis для тестов
+  # Test environment
+  TEST_DATABASE_URL: "postgresql+asyncpg://postgres:postgres@test_db:5432/finance_db_test"
+  TEST_SYNC_DATABASE_URL: "postgresql+psycopg2://postgres:postgres@test_db:5432/finance_db_test"
+  TEST_SECRET_KEY: "testsecret"
+  TEST_ALGORITHM: "HS256"
+  TEST_ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  TEST_REFRESH_TOKEN_EXPIRE_DAYS: "5"
+  TEST_REDIS_URL: "redis://redis:6379/1"
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     services:
-      # Основная БД
       db:
         image: postgres:15
         env:
@@ -49,7 +48,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # Тестовая БД
       test_db:
         image: postgres:15
         env:
@@ -64,7 +62,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # Redis (основной и тестовый используют разные номера БД)
       redis:
         image: redis:7
         ports:
@@ -104,7 +101,24 @@ jobs:
           chmod +x /usr/local/bin/docker-compose
 
       - name: Build and start containers
-        run: docker-compose up -d --build
+        run: |
+          docker-compose --env-file <(echo "
+            DATABASE_URL=$DATABASE_URL
+            SYNC_DATABASE_URL=$SYNC_DATABASE_URL
+            SECRET_KEY=$SECRET_KEY
+            ALGORITHM=$ALGORITHM
+            ACCESS_TOKEN_EXPIRE_MINUTES=$ACCESS_TOKEN_EXPIRE_MINUTES
+            REFRESH_TOKEN_EXPIRE_DAYS=$REFRESH_TOKEN_EXPIRE_DAYS
+            REDIS_URL=$REDIS_URL
+            CORS_ORIGINS=$CORS_ORIGINS
+            TEST_DATABASE_URL=$TEST_DATABASE_URL
+            TEST_SYNC_DATABASE_URL=$TEST_SYNC_DATABASE_URL
+            TEST_SECRET_KEY=$TEST_SECRET_KEY
+            TEST_ALGORITHM=$TEST_ALGORITHM
+            TEST_ACCESS_TOKEN_EXPIRE_MINUTES=$TEST_ACCESS_TOKEN_EXPIRE_MINUTES
+            TEST_REFRESH_TOKEN_EXPIRE_DAYS=$TEST_REFRESH_TOKEN_EXPIRE_DAYS
+            TEST_REDIS_URL=$TEST_REDIS_URL
+          ") up -d --build
 
       - name: Apply migrations to main DB
         run: docker-compose exec app alembic upgrade head
@@ -113,11 +127,8 @@ jobs:
         run: docker-compose exec app bash -c 'DATABASE_URL=$TEST_DATABASE_URL alembic upgrade head'
 
       - name: Run tests
-        run: |
-          poetry run pytest
+        run: poetry run pytest
 
-      - name: Debug (опционально)
-        if: always()
-        run: |
-          docker-compose ps
-          docker-compose logs app
+      - name: Show logs if failed
+        if: failure()
+        run: docker-compose logs
