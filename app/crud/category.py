@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
 import logging
+from typing import Optional
 
 from app.db.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
@@ -65,21 +66,20 @@ async def get_user_categories(
 
 async def update_category(
     db: AsyncSession, category_id: int, category_in: CategoryUpdate, user: User
-):
+) -> Optional[Category]:
     result = await db.execute(
         select(Category).where(Category.id == category_id, Category.user_id == user.id)
     )
     category = result.scalar_one_or_none()
     if not category:
         return None
-
-    for key, value in category_in.model_dump().items():
-        setattr(category, key, value)
-
+    update_data = category_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(category, field, value)
     await db.commit()
     await db.refresh(category)
     logger.info(
-        f"User {user.id} updated category {category.id} (name: {category.name}, type: {category.type}, parent_id: {category.parent_id})"
+        f"User {user.id} updated category {category.id} (fields: {list(update_data.keys())})"
     )
     return category
 

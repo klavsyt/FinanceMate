@@ -16,6 +16,7 @@ class User(Base):
     date_registered: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    avatar: Mapped[str] = mapped_column(nullable=True)
 
     transactions = relationship("Transaction", back_populates="user")
     budgets = relationship("Budget", back_populates="user")

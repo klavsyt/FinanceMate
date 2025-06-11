@@ -20,6 +20,17 @@ depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
 
 def upgrade() -> None:
     """Upgrade schema."""
+    # Create alembic_version table with longer version_num
+    op.execute('''
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'alembic_version') THEN
+            CREATE TABLE alembic_version (
+                version_num VARCHAR(128) NOT NULL
+            );
+        END IF;
+    END$$;
+    ''')
     ${upgrades if upgrades else "pass"}
 
 

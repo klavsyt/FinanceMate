@@ -32,6 +32,21 @@ export function setupAuth(onAuthSuccess) {
     if (response.ok) {
       const data = await response.json();
       localStorage.setItem("token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+      // fetch user profile to sync avatar
+      try {
+        const profileResp = await import("./api.js").then((m) =>
+          m.apiGetProfile(data.access_token)
+        );
+        if (profileResp.ok) {
+          const user = await profileResp.json();
+          if (user.avatar) {
+            localStorage.setItem("financemate_avatar", user.avatar);
+          } else {
+            localStorage.removeItem("financemate_avatar");
+          }
+        }
+      } catch {}
       authSection.style.display = "none";
       mainSection.style.display = "block";
       showToast("Вход выполнен успешно!", "success");

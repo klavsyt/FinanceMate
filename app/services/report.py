@@ -1,6 +1,8 @@
 from sqlalchemy import select, func
 from app.db.models.transaction import Transaction
 from app.services.curency import convert_to_base
+from typing import Optional
+from app.db.models.category import Category
 
 
 async def get_category_report(
@@ -27,7 +29,9 @@ async def get_category_report(
     return report
 
 
-async def get_monthly_report(db, user_id: int, base_currency: str, year: int):
+async def get_monthly_report(
+    db, user_id: int, base_currency: str, year: int, category_type: Optional[str] = None
+):
     from sqlalchemy import extract
 
     query = select(
@@ -36,6 +40,9 @@ async def get_monthly_report(db, user_id: int, base_currency: str, year: int):
         Transaction.currency,
     ).where(Transaction.user_id == user_id)
     query = query.where(extract("year", Transaction.date) == year)
+    if category_type:
+        query = query.join(Category, Transaction.category_id == Category.id)
+        query = query.where(Category.type == category_type)
     query = query.group_by("month", Transaction.currency)
     result = await db.execute(query)
     rows = result.fetchall()

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy.exc import IntegrityError
 
 from app.schemas.budget import *
 from app.crud.budget import *
@@ -21,7 +21,14 @@ async def create_budget_endpoint(
     """
     Create a new budget.
     """
-    return await create_budget(db, budget_in, current_user.id)
+    try:
+        return await create_budget(db, budget_in, current_user.id)
+    except IntegrityError as exc:
+        if "uq_budget_user_category" in str(exc.orig):
+            raise HTTPException(
+                status_code=409, detail="Бюджет для этой категории уже существует"
+            )
+        raise
 
 
 @router.get("/", response_model=list[BudgetOut])
@@ -61,18 +68,14 @@ async def delete_budget_endpoint(
 ):
     import logging
 
-    print(
-        f"[DEBUG] delete_budget_endpoint called: budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}, username={getattr(current_user, 'username', None)}"
-    )
     logging.warning(
-        f"[DEBUG] delete_budget_endpoint called: budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}, username={getattr(current_user, 'username', None)}"
+        f"delete_budget_endpoint called: budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}, username={getattr(current_user, 'username', None)}"
     )
     deleted_budget = await delete_budget(db, budget_id, current_user.id)
     if not deleted_budget:
         logging.warning(
-            f"[DEBUG] endpoint: NOT FOUND budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}"
+            f"endpoint: NOT FOUND budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}"
         )
-        raise HTTPException(status_code=404, detail="Бюджет не найден")
     return deleted_budget
 
 

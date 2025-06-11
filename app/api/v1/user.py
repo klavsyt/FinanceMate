@@ -6,8 +6,8 @@ from jose import JWTError
 from app.core.security import create_access_token, decode_access_token
 from app.core.config import settings
 from app.db.session import get_async_session
-from app.schemas.user import UserCreate, UserRead, Token, TokenData
-from app.crud.user import create_user, login_user, get_current_user
+from app.schemas.user import UserCreate, UserRead, Token, TokenData, UserChangePassword
+from app.crud.user import create_user, login_user, get_current_user, update_user_profile
 from app.db.models.user import User
 
 router = APIRouter(tags=["user"])
@@ -60,3 +60,36 @@ async def refresh_access_token(refresh_token: str = Body(..., embed=True)):
         }
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+@router.post("/change-password/")
+async def change_password(
+    data: UserChangePassword,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Change password for the current user.
+    """
+    from app.core.security import verify_password, hash_password
+
+    if not verify_password(data.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Текущий пароль неверен")
+    if data.old_password == data.new_password:
+        raise HTTPException(status_code=400, detail="Новый пароль совпадает с текущим")
+    current_user.hashed_password = hash_password(data.new_password)
+    await db.commit()
+    return {"detail": "Пароль успешно изменён"}
+
+
+@router.put("/me/", response_model=UserRead)
+async def update_current_user(
+    data: dict = Body(...),
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update current user's profile (avatar).
+    """
+    user = await update_user_profile(db, current_user, data)
+    return UserRead.from_orm(user)

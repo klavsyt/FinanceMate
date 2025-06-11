@@ -13,6 +13,13 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0d6efd" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="icon" href="favicon.ico" />
   </head>
   <body>
     <!-- Toast container for notifications -->
@@ -25,20 +32,65 @@
     ></div>
     <!-- /Toast container -->
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-      <div class="container-fluid">
-        <a class="navbar-brand fw-bold" href="#"
-          ><i class="bi bi-wallet2 me-2"></i>FinanceMate</a
+    <nav
+      class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm align-items-start"
+      style="padding-top: 0; padding-bottom: 0; min-height: unset"
+    >
+      <div
+        class="container-fluid d-flex align-items-center"
+        style="padding-top: 0; padding-bottom: 0; min-height: unset"
+      >
+        <a
+          class="navbar-brand fw-bold d-flex align-items-center"
+          href="#"
+          style="padding-top: 0; padding-bottom: 0"
         >
-        <span class="navbar-text text-light">Финансовый ассистент</span>
-        <button
-          id="theme-toggle"
-          class="btn btn-outline-light ms-auto"
-          title="Сменить тему"
-          style="margin-left: auto"
-        >
-          <i class="bi bi-moon-stars" id="theme-toggle-icon"></i>
-        </button>
+          <i class="bi bi-wallet2 me-2"></i>FinanceMate
+        </a>
+        <div class="d-flex align-items-center ms-auto" style="gap: 0.5em">
+          <button
+            id="theme-toggle"
+            class="btn btn-outline-light me-3"
+            title="Сменить тему"
+            style="
+              min-width: 38px;
+              min-height: 38px;
+              border-radius: 50%;
+              background: #fff2;
+              color: #fff;
+            "
+          >
+            <i class="bi bi-moon-stars" id="theme-toggle-icon"></i>
+          </button>
+          <button
+            class="btn btn-outline-secondary me-2"
+            id="profile-btn"
+            title="Профиль"
+            style="
+              min-width: 38px;
+              min-height: 38px;
+              border-radius: 50%;
+              background: #fff2;
+              color: #fff;
+            "
+          >
+            <i class="bi bi-person-circle"></i>
+          </button>
+          <button
+            class="btn btn-outline-danger"
+            id="logout-btn"
+            title="Выйти"
+            style="
+              min-width: 38px;
+              min-height: 38px;
+              border-radius: 50%;
+              background: #fff2;
+              color: #fff;
+            "
+          >
+            <i class="bi bi-box-arrow-right"></i>
+          </button>
+        </div>
       </div>
     </nav>
     <div class="container py-5">
@@ -126,8 +178,8 @@
         <!-- Вкладки с иконками -->
         <ul class="nav nav-tabs mb-4" id="main-tabs">
           <li class="nav-item">
-            <a class="nav-link active" id="tab-budgets" href="#"
-              ><i class="bi bi-pie-chart"></i> Бюджеты</a
+            <a class="nav-link active" id="tab-reports" href="#"
+              ><i class="bi bi-bar-chart"></i> Отчёты</a
             >
           </li>
           <li class="nav-item">
@@ -141,30 +193,118 @@
             >
           </li>
           <li class="nav-item">
+            <a class="nav-link" id="tab-budgets" href="#"
+              ><i class="bi bi-pie-chart"></i> Бюджеты</a
+            >
+          </li>
+          <li class="nav-item">
             <a class="nav-link" id="tab-notifications" href="#"
               ><i class="bi bi-bell"></i> Уведомления</a
             >
           </li>
-          <li class="nav-item">
-            <a class="nav-link" id="tab-reports" href="#"
-              ><i class="bi bi-bar-chart"></i> Отчёты</a
-            >
-          </li>
         </ul>
         <div class="tab-content bg-white p-4 rounded shadow-sm mb-4">
-          <div id="budgets-view" class="tab-pane fade show active"></div>
-          <div id="transactions-view" class="tab-pane fade"></div>
+          <div id="reports-view" class="tab-pane fade show active"></div>
+          <div id="transactions-view"></div>
           <div id="categories-view" class="tab-pane fade"></div>
+          <div id="budgets-view" class="tab-pane fade"></div>
           <div id="notifications-view" class="tab-pane fade"></div>
-          <div id="reports-view" class="tab-pane fade"></div>
-        </div>
-        <div class="text-end">
-          <button class="btn btn-outline-danger" id="logout-btn">
-            <i class="bi bi-box-arrow-right"></i> Выйти
-          </button>
         </div>
       </div>
     </div>
+
+    <!-- Transaction Modal -->
+    <div
+      class="modal fade"
+      id="transaction-modal"
+      tabindex="-1"
+      aria-labelledby="transactionModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="transactionModalLabel">
+              Новая транзакция
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="transaction-form">
+              <input type="hidden" id="transaction-id" />
+              <div class="mb-3">
+                <label for="transaction-type" class="form-label">Тип</label>
+                <select class="form-select" id="transaction-type">
+                  <option value="expense">Расход</option>
+                  <option value="income">Доход</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="transaction-category" class="form-label"
+                  >Категория</label
+                >
+                <select class="form-select" id="transaction-category">
+                  <option value="">Выберите категорию</option>
+                  <!-- Categories will be populated by JavaScript -->
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="transaction-amount" class="form-label">Сумма</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="transaction-amount"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="transaction-date" class="form-label">Дата</label>
+                <input
+                  type="date"
+                  class="form-control"
+                  id="transaction-date"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="transaction-comment" class="form-label"
+                  >Комментарий</label
+                >
+                <textarea
+                  class="form-control"
+                  id="transaction-comment"
+                  rows="3"
+                ></textarea>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Закрыть
+            </button>
+            <button
+              type="submit"
+              form="transaction-form"
+              class="btn btn-primary"
+            >
+              Сохранить
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End Transaction Modal -->
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="main.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>

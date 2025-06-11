@@ -69,23 +69,18 @@ async def update_budget(
 
 
 async def delete_budget(db: AsyncSession, budget_id: int, user_id: int):
-    import logging
-
-    logging.warning(f"[DEBUG] delete_budget: budget_id={budget_id}, user_id={user_id}")
     result = await db.execute(
         select(Budget).where(Budget.id == budget_id, Budget.user_id == user_id)
     )
     budget = result.scalar_one_or_none()
 
     if not budget:
-        logging.warning(
-            f"[DEBUG] delete_budget: NOT FOUND budget_id={budget_id}, user_id={user_id}"
+        logger.warning(
+            f"delete_budget: NOT FOUND budget_id={budget_id}, user_id={user_id}"
         )
         return None
 
     await db.delete(budget)
     await db.commit()
-    logging.warning(
-        f"[DEBUG] delete_budget: DELETED budget_id={budget_id}, user_id={user_id}"
-    )
+    logger.warning(f"delete_budget: DELETED budget_id={budget_id}, user_id={user_id}")
     return budget

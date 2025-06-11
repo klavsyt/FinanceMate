@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from fastapi import Request
@@ -6,6 +6,12 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError as FastAPIValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from decimal import Decimal
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
+import redis.asyncio as redis
+import os
+import sentry_sdk
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.v1.user import router as user_router
 from app.api.v1.category import router as category_router
@@ -17,33 +23,101 @@ from app.api.v1.report import router as report_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("financemate")
 
+# Определяем окружение
+ENV = os.getenv("ENV", "production").lower()
+IS_PROD = ENV == "production"
+
+# Sentry DSN только из переменной окружения
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN", None),
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    # Set profile_session_sample_rate to 1.0 to profile 100%
+    # of profile sessions.
+    profile_session_sample_rate=1.0,
+    # Set profile_lifecycle to "trace" to automatically
+    # run the profiler on when there is an active transaction
+    profile_lifecycle="trace",
+    environment=os.getenv("SENTRY_ENV", ENV),  # <-- добавлено
+)
+
 app = FastAPI(
     title="FinanceMate API",
     description="API для финансового ассистента. Поддерживает бюджеты, транзакции, категории, уведомления, отчёты. Все методы требуют авторизации через Bearer-токен.",
     version="1.0.0",
     contact={"name": "FinanceMate Team", "email": "support@financemate.com"},
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if IS_PROD else "/docs",
+    redoc_url=None if IS_PROD else "/redoc",
 )
+
+Instrumentator().instrument(app).expose(app)
 # CORS settings
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# CORS: только нужные домены в production
+if IS_PROD:
+    allowed_origins = (
+        os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
+    )
+else:
+    allowed_origins = [
         "http://127.0.0.1:5500",
         "http://localhost:5500",
-    ],  # Adjust this to your needs
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "*",
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-app.include_router(user_router, prefix="/api/v1/user")
-app.include_router(category_router, prefix="/api/v1/category")
-app.include_router(budget_router, prefix="/api/v1/budget")
-app.include_router(transaction_router, prefix="/api/v1/transaction")
-app.include_router(notification_router, prefix="/api/v1/notification")
-app.include_router(report_router, prefix="/api/v1/report")
+app.include_router(
+    user_router,
+    prefix="/api/v1/user",
+    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
+)
+app.include_router(
+    category_router,
+    prefix="/api/v1/category",
+    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
+)
+app.include_router(
+    budget_router,
+    prefix="/api/v1/budget",
+    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
+)
+app.include_router(
+    transaction_router,
+    prefix="/api/v1/transaction",
+    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
+)
+app.include_router(
+    notification_router,
+    prefix="/api/v1/notification",
+    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
+)
+app.include_router(
+    report_router,
+    prefix="/api/v1/report",
+    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
+)
+
+
+@app.on_event("startup")
+async def startup():
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_client = await redis.from_url(
+        redis_url, encoding="utf8", decode_responses=True
+    )
+    await FastAPILimiter.init(redis_client)
 
 
 @app.exception_handler(Exception)
@@ -84,3 +158,17 @@ async def validation_exception_handler(request: Request, exc: FastAPIValidationE
         status_code=422,
         content={"detail": errors, "code": 422},
     )
+
+
+@app.get(
+    "/health", tags=["infra"], dependencies=[Depends(RateLimiter(times=5, seconds=5))]
+)
+def healthcheck():
+    """Healthcheck endpoint for monitoring and load balancers."""
+    return {"status": "ok"}
+
+
+# Пример ограничения для любого роутера:
+# @app.get("/some-protected-endpoint", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
+# def some_endpoint():
+#     return {"msg": "ok"}

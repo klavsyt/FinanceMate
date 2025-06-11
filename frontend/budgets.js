@@ -11,6 +11,21 @@ let budgetFilters = {
   sort: "limit_desc",
 };
 
+let cachedCategories = null;
+async function getCachedCategories(token) {
+  if (!cachedCategories) {
+    const categoriesResp = await import("./api.js").then((m) =>
+      m.apiGetCategories(token)
+    );
+    if (categoriesResp.ok) {
+      cachedCategories = await categoriesResp.json();
+    } else {
+      cachedCategories = [];
+    }
+  }
+  return cachedCategories;
+}
+
 export async function renderBudgets(token) {
   const view = document.getElementById("budgets-view");
   view.innerHTML = `
@@ -24,18 +39,17 @@ export async function renderBudgets(token) {
           <option value="period_desc">Период ↓</option>
         </select>
       </div>
-      <button class="btn btn-success" id="add-budget-btn"><i class="bi bi-plus"></i> Добавить</button>
+      <button class="btn btn-success d-none d-sm-inline" id="add-budget-btn"><i class="bi bi-plus"></i> Новый бюджет</button>
     </div>
     <div id="budgets-alert"></div>
-    <div id="budgets-table"></div>`;
+    <div id="budgets-table"></div>
+    <button class="fab-add d-sm-none" id="fab-add-budget" title="Новый бюджет"><i class="bi bi-plus"></i></button>`;
   // Заполнить фильтр категорий
-  const categoriesResp = await import("./api.js").then((m) =>
-    m.apiGetCategories(token)
-  );
-  let categories = [];
-  if (categoriesResp.ok) categories = await categoriesResp.json();
+  let categories = await getCachedCategories(token);
+  // Оставляем только категории-расходы для фильтра
+  const expenseCategories = categories.filter((c) => c.type === "expense");
   const catSelect = document.getElementById("budget-filter-category");
-  categories.forEach((c) => {
+  expenseCategories.forEach((c) => {
     const opt = document.createElement("option");
     opt.value = c.id;
     opt.textContent = c.name;
@@ -56,7 +70,15 @@ export async function renderBudgets(token) {
   };
   document.getElementById("add-budget-btn").onclick = () =>
     showBudgetModal(token);
+  setupFabAddBudgetHandler(token);
   loadBudgets(token);
+}
+
+function setupFabAddBudgetHandler(token) {
+  const fabBtn = document.getElementById("fab-add-budget");
+  if (fabBtn) {
+    fabBtn.onclick = () => showBudgetModal(token);
+  }
 }
 
 async function loadBudgets(token) {
@@ -66,11 +88,7 @@ async function loadBudgets(token) {
     '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>';
   clearAlert(alert);
   // Получаем категории для отображения названия
-  const categoriesResp = await import("./api.js").then((m) =>
-    m.apiGetCategories(token)
-  );
-  let categories = [];
-  if (categoriesResp.ok) categories = await categoriesResp.json();
+  let categories = await getCachedCategories(token);
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const response = await apiGetBudgets(token, {
     limit: budgetPageLimit,
@@ -103,26 +121,45 @@ async function loadBudgets(token) {
       table.innerHTML =
         '<div class="alert alert-info text-center py-4"><i class="bi bi-emoji-frown fs-2"></i><br>Бюджеты не найдены. Добавьте первый бюджет!</div>';
     } else {
-      table.innerHTML = `<div class="table-responsive"><table class="table table-hover align-middle">
-        <thead><tr><th>Категория</th><th>Лимит</th><th>Период</th><th>Валюта</th><th></th></tr></thead><tbody>
-        ${budgets
-          .map(
-            (b) =>
-              `<tr class="fade-in-row"><td>${
-                catMap[b.category_id] || b.category_id
-              }</td><td>${b.limit.toLocaleString("ru-RU", {
-                style: "currency",
-                currency,
-              })}</td><td>${b.period}</td><td>${
-                b.currency
-              }</td><td><button class='btn btn-sm btn-primary' data-edit-id='${
-                b.id
-              }'><i class="bi bi-pencil"></i> Редактировать</button> <button class='btn btn-sm btn-danger' data-id='${
-                b.id
-              }'><i class="bi bi-trash"></i> Удалить</button></td></tr>`
-          )
-          .join("")}
-        </tbody></table></div>`;
+      // --- Современный UI: карточки бюджетов ---
+      table.innerHTML =
+        '<div class="budget-cards-list">' +
+        budgets
+          .map((b, i) => {
+            const cat = categories.find((c) => c.id === b.category_id) || {};
+            return `<div class="budget-card fade-in-row" style="background:${
+              cat.color || "#e3f0ff"
+            }22;animation-delay:${i * 0.04}s">
+              <div class="budget-cat-icon" style="background:${
+                cat.color || "#e3f0ff"
+              };"><i class="bi ${cat.icon || "bi-tag"}"></i></div>
+              <div class="budget-info">
+                <div class="budget-category">${cat.name || b.category_id}</div>
+                <div class="budget-limit">${b.limit.toLocaleString("ru-RU", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}</div>
+                <div class="budget-period">${
+                  b.period === "monthly"
+                    ? "Месяц"
+                    : b.period === "yearly"
+                    ? "Год"
+                    : b.period
+                }</div>
+                <div class="budget-currency">${b.currency}</div>
+              </div>
+              <div class="d-flex flex-column align-items-end gap-1 budget-actions">
+                <button class='btn btn-sm btn-primary mb-1' data-edit-id='${
+                  b.id
+                }' title="Изменить"><i class="bi bi-pencil"></i></button>
+                <button class='btn btn-sm btn-danger' data-id='${
+                  b.id
+                }' title="Удалить"><i class="bi bi-trash"></i></button>
+              </div>
+            </div>`;
+          })
+          .join("") +
+        "</div>";
       // Пагинация
       table.innerHTML += `<div class="d-flex justify-content-between align-items-center mt-3">
         <button class="btn btn-outline-secondary" id="budget-prev-page" ${
@@ -173,7 +210,11 @@ async function loadBudgets(token) {
         btn.onclick = async () => {
           const budgetId = Number(btn.getAttribute("data-edit-id"));
           const budget = budgets.find((b) => b.id === budgetId);
-          if (budget) await showEditBudgetModal(token, budget, categories);
+          if (budget) {
+            await showEditBudgetModal(token, budget, categories);
+          } else {
+            showAlert(alert, "Ошибка: бюджет не найден", "danger");
+          }
         };
       });
     }
@@ -190,7 +231,19 @@ function showBudgetModal(token) {
       m.apiGetCategories(token)
     );
     let categories = [];
-    if (categoriesResp.ok) categories = await categoriesResp.json();
+    if (!cachedCategories) {
+      const categoriesResp = await import("./api.js").then((m) =>
+        m.apiGetCategories(token)
+      );
+      if (categoriesResp.ok) {
+        categories = await categoriesResp.json();
+        cachedCategories = categories;
+      }
+    } else {
+      categories = cachedCategories;
+    }
+    // Оставляем только категории-расходы
+    categories = categories.filter((c) => c.type === "expense");
     const categoryOptions = categories
       .map((c) => `<option value="${c.id}">${c.name}</option>`)
       .join("");
@@ -205,7 +258,7 @@ function showBudgetModal(token) {
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Добавить бюджет</h5>
+              <h5 class="modal-title">Новый бюджет</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="budget-form">
@@ -244,7 +297,7 @@ function showBudgetModal(token) {
                 <div id="budget-modal-alert"></div>
               </div>
               <div class="modal-footer">
-                <button type="submit" class="btn btn-success">Сохранить</button>
+                <button type="submit" class="btn btn-success">Сохранить бюджет</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
               </div>
             </form>
@@ -297,6 +350,7 @@ function showBudgetModal(token) {
       saveBtn.disabled = false;
       saveBtn.innerHTML = origBtnHtml;
       if (resp.ok) {
+        cachedCategories = null;
         modal.hide();
         document.getElementById("budgetModal").remove();
         renderBudgets(token);
@@ -305,7 +359,13 @@ function showBudgetModal(token) {
         let errText = "";
         try {
           const err = await resp.json();
-          if (Array.isArray(err.detail)) {
+          if (
+            resp.status === 409 &&
+            typeof err.detail === "string" &&
+            err.detail.includes("уже существует")
+          ) {
+            errText = "Бюджет для этой категории уже существует.";
+          } else if (Array.isArray(err.detail)) {
             errText = err.detail.map((e) => e.msg).join("; ");
           } else if (typeof err.detail === "string") {
             errText = err.detail;
@@ -322,13 +382,16 @@ function showBudgetModal(token) {
     document
       .getElementById("budgetModal")
       .addEventListener("hidden.bs.modal", () => {
-        document.getElementById("budgetModal").remove();
+        const modalEl = document.getElementById("budgetModal");
+        if (modalEl) modalEl.remove();
       });
   })();
 }
 
 async function showEditBudgetModal(token, budget, categories) {
-  const categoryOptions = categories
+  // Оставляем только категории-расходы
+  const expenseCategories = categories.filter((c) => c.type === "expense");
+  const categoryOptions = expenseCategories
     .map(
       (c) =>
         `<option value="${c.id}"${
@@ -385,7 +448,7 @@ async function showEditBudgetModal(token, budget, categories) {
               <div id="edit-budget-modal-alert"></div>
             </div>
             <div class="modal-footer">
-              <button type="submit" class="btn btn-success">Сохранить</button>
+              <button type="submit" class="btn btn-success">Сохранить бюджет</button>
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
             </div>
           </form>
@@ -426,19 +489,17 @@ async function showEditBudgetModal(token, budget, categories) {
       period,
       currency,
     };
-    const resp = await fetch(`/api/v1/budget/budgets/${budget.id}/`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token,
-      },
-      body: JSON.stringify(data),
-    });
+    const resp = await import("./api.js").then((m) =>
+      m.apiEditBudget(token, budget.id, data)
+    );
     saveBtn.disabled = false;
     saveBtn.innerHTML = origBtnHtml;
     if (resp.ok) {
+      cachedCategories = null;
       modal.hide();
-      document.getElementById("editBudgetModal").remove();
+      // Безопасно удаляем модалку только если она существует
+      const modalEl = document.getElementById("editBudgetModal");
+      if (modalEl) modalEl.remove();
       renderBudgets(token);
       showToast("Бюджет успешно обновлён!", "success");
     } else {
@@ -447,9 +508,12 @@ async function showEditBudgetModal(token, budget, categories) {
       showToast("Ошибка обновления бюджета: " + (err.detail || ""), "danger");
     }
   };
-  document
-    .getElementById("editBudgetModal")
-    .addEventListener("hidden.bs.modal", () => {
-      document.getElementById("editBudgetModal").remove();
+  // Безопасно навешиваем обработчик закрытия модалки
+  const modalEl = document.getElementById("editBudgetModal");
+  if (modalEl) {
+    modalEl.addEventListener("hidden.bs.modal", () => {
+      const el = document.getElementById("editBudgetModal");
+      if (el) el.remove();
     });
+  }
 }

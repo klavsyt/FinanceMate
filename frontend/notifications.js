@@ -6,36 +6,59 @@ export async function renderNotifications(token) {
   view.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-bell"></i> Уведомления</h4>
   </div>
-  <div id="notifications-table"></div>`;
+  <div id="notifications-list"></div>`;
   loadNotifications(token);
 }
 
+function formatDateTime(dt) {
+  // dt: "2025-06-10T13:45:12.123456"
+  if (!dt) return "";
+  const [date, time] = dt.split("T");
+  return `${date} ${time ? time.slice(0, 5) : ""}`;
+}
+
 async function loadNotifications(token) {
-  const table = document.getElementById("notifications-table");
-  table.innerHTML = "Загрузка...";
+  const list = document.getElementById("notifications-list");
+  list.innerHTML =
+    '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>';
   const response = await apiGetNotifications(token);
   if (response.ok) {
     const notifs = await response.json();
     if (notifs.length === 0) {
-      table.innerHTML = '<div class="alert alert-info">Уведомлений нет.</div>';
+      list.innerHTML =
+        '<div class="alert alert-info text-center py-4"><i class="bi bi-emoji-smile fs-2"></i><br>Уведомлений нет</div>';
     } else {
-      table.innerHTML = `<div class="table-responsive"><table class="table table-hover align-middle">
-        <thead><tr><th>Дата</th><th>Сообщение</th><th>Прочитано</th></tr></thead><tbody>
-        ${notifs
-          .map(
-            (n) =>
-              `<tr><td>${
-                n.created_at.split("T")[0]
-              }</td><td>${formatNotificationMessage(n.message)}</td><td>${
-                n.is_read ? "Да" : "Нет"
-              }</td></tr>`
-          )
-          .join("")}
-        </tbody></table></div>`;
+      list.innerHTML =
+        '<div class="notification-cards-list">' +
+        notifs
+          .map((n, i) => {
+            const icon = n.is_read ? "bi-envelope-open" : "bi-bell-fill";
+            const cardClass = `notification-card fade-in-row ${
+              n.is_read ? "read" : "unread"
+            }`;
+            return `<div class="${cardClass}" style="animation-delay:${
+              i * 0.04
+            }s">
+                <div class="notif-icon"><i class="bi ${icon}"></i></div>
+                <div class="notif-info">
+                  <div class="notif-date">${formatDateTime(n.created_at)}</div>
+                  <div class="notif-message">${formatNotificationMessage(
+                    n.message
+                  )}</div>
+                </div>
+                <div class="notif-status">${
+                  n.is_read
+                    ? "<span class='badge bg-success'>Прочитано</span>"
+                    : "<span class='badge bg-warning text-dark'>Новое</span>"
+                }</div>
+              </div>`;
+          })
+          .join("") +
+        "</div>";
     }
   } else {
-    table.innerHTML =
-      '<div class="alert alert-danger">Ошибка загрузки уведомлений</div>';
+    list.innerHTML =
+      '<div class="alert alert-danger text-center py-4">Ошибка загрузки уведомлений</div>';
   }
 }
 

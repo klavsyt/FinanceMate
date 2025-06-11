@@ -15,7 +15,7 @@ class Budget(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     category_id: Mapped[int] = mapped_column(
-        ForeignKey("categories.id"), nullable=False
+        ForeignKey("categories.id", ondelete="CASCADE"), nullable=False
     )
     limit: Mapped[Numeric] = mapped_column(
         Numeric(precision=10, scale=2), nullable=False

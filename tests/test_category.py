@@ -38,7 +38,7 @@ async def test_category_crud(client, auth_headers):
 @pytest.mark.asyncio
 async def test_category_summary(client, auth_headers):
     resp = await client.get(
-        "/api/v1/report/reports/category-summary/?year=2025", headers=auth_headers
+        "/api/v1/report/category-summary/?year=2025", headers=auth_headers
     )
     assert resp.status_code == 200
     assert isinstance(resp.json(), dict)

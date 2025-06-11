@@ -25,10 +25,7 @@ async def create_transaction(
     budget = budget.scalar_one_or_none()
     amount = Decimal(str(transaction.amount))
     currency = transaction.currency
-    # Если есть бюджет и валюты не совпадают — конвертируем
-    if budget and budget.currency != currency:
-        amount = await convert_to_base(amount, currency, budget.currency, db)
-        currency = budget.currency
+    # Транзакция всегда сохраняется в валюте пользователя
     new_transaction = Transaction(
         amount=amount,
         currency=currency,
@@ -41,14 +38,11 @@ async def create_transaction(
     await db.commit()
     await db.refresh(new_transaction)
     logger.info(
-        f"User {user_id} created transaction {new_transaction.id} (amount {new_transaction.amount}, category {new_transaction.category_id}, date {new_transaction.date})"
+        f"User {user_id} created transaction {new_transaction.id} (amount {new_transaction.amount}, category {new_transaction.category_id}, date {new_transaction.date}, currency {new_transaction.currency})"
     )
     # Корректный вызов Celery-задачи (работает и при запуске без воркера)
     task = check_budget_limit_task
-    if hasattr(task, "delay") and callable(getattr(task, "delay", None)):
-        task.delay(user_id, transaction.category_id)
-    else:
-        task(user_id, transaction.category_id)
+    task(user_id, transaction.category_id)
     return new_transaction
 
 
@@ -73,10 +67,7 @@ async def update_transaction(
     )
     # Корректный вызов Celery-задачи (работает и при запуске без воркера)
     task = check_budget_limit_task
-    if hasattr(task, "delay") and callable(getattr(task, "delay", None)):
-        task.delay(existing_transaction.user_id, existing_transaction.category_id)
-    else:
-        task(existing_transaction.user_id, existing_transaction.category_id)
+    task(existing_transaction.user_id, existing_transaction.category_id)
 
     return existing_transaction
 

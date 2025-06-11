@@ -23,6 +23,12 @@ psycopg2-binary = "^2.9.10"
 pytest-asyncio = "^1.0.0"
 asgi-lifespan = "^2.1.0"
 httpx = "^0.28.1"
+aiosqlite = "^0.21.0"
+fastapi-limiter = "^0.1.6"
+redis = "^5.0.4"
+sentry-sdk = "^2.29.1"
+prometheus-fastapi-instrumentator = "^7.1.0"
+setuptools = "^80.9.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"

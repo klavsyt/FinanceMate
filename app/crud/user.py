@@ -74,7 +74,7 @@ async def get_current_user(
 ):
     import logging
 
-    logging.warning(f"[DEBUG] get_current_user: token={token}")
+    logging.warning(f"get_current_user: token={token}")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Не удалось авторизовать пользователя",
@@ -85,7 +85,7 @@ async def get_current_user(
     if not payload:
         raise credentials_exception
 
-    email: str = payload.get("sub")
+    email: str = payload.get("sub")  # type: ignore
     if email is None:
         raise credentials_exception
 
@@ -93,10 +93,20 @@ async def get_current_user(
     user = result.scalar_one_or_none()
 
     logging.warning(
-        f"[DEBUG] get_current_user: user={getattr(user, 'id', None)}, username={getattr(user, 'username', None)}, email={getattr(user, 'email', None)}"
+        f"get_current_user: user={getattr(user, 'id', None)}, username={getattr(user, 'username', None)}, email={getattr(user, 'email', None)}"
     )
 
     if user is None:
         raise credentials_exception
 
+    return user
+
+
+async def update_user_profile(db: AsyncSession, user: User, data: dict):
+    allowed_fields = {"avatar"}
+    for field in allowed_fields:
+        if field in data:
+            setattr(user, field, data[field])
+    await db.commit()
+    await db.refresh(user)
     return user

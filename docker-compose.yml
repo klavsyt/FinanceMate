@@ -13,15 +13,17 @@ services:
 
   app:
     build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 # Для разработки можно добавить --reload, но в production не использовать!
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     env_file:
       - .env
+      - .env.test
     depends_on:
       - db
+      - db_test
 
   redis:
     image: redis:7
@@ -52,5 +54,49 @@ services:
       - redis
       - app
 
+  db_test:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: finance_db_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_test_data:/var/lib/postgresql/data
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - app
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+  nginx:
+    image: nginx:1.25
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+
 volumes:
   db_data:
+  db_test_data:

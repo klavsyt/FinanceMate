@@ -131,3 +131,184 @@ export function showEmptyState(container, icon, text) {
     <i class="bi ${icon} fs-2"></i><br>${text}
   </div>`;
 }
+
+// --- Профиль пользователя ---
+export function showProfileModal(user) {
+  const id = "profileModal";
+  if (document.getElementById(id)) document.getElementById(id).remove();
+  // --- аватарки на выбор ---
+  const avatars = [
+    "https://api.dicebear.com/7.x/bottts/svg?seed=cat",
+    "https://api.dicebear.com/7.x/bottts/svg?seed=fox",
+    "https://api.dicebear.com/7.x/bottts/svg?seed=dog",
+    "https://api.dicebear.com/7.x/bottts/svg?seed=owl",
+    "https://api.dicebear.com/7.x/bottts/svg?seed=alien",
+  ];
+  let selectedAvatar = user.avatar || avatars[0];
+  const avatarHtml = `
+    <div class="profile-avatar mb-2">
+      <img src="${selectedAvatar}" alt="avatar" style="width:72px;height:72px;border-radius:50%;background:#f8fafc;object-fit:cover;box-shadow:0 2px 8px rgba(13,110,253,0.08);">
+    </div>
+    <div class="d-flex justify-content-center gap-2 mb-2">
+      ${avatars
+        .map(
+          (url) =>
+            `<img src="${url}" class="avatar-choice${
+              url === selectedAvatar ? " selected" : ""
+            }" style="width:38px;height:38px;border-radius:50%;border:2px solid ${
+              url === selectedAvatar ? "#1976d2" : "#eee"
+            };background:#f8fafc;object-fit:cover;cursor:pointer;transition:.15s;">`
+        )
+        .join("")}
+    </div>
+  `;
+  const bodyHtml = `
+    <div class="d-flex flex-column align-items-center gap-2 py-2">
+      ${avatarHtml}
+      <div class="mb-1 w-100 text-center">
+        <span class="fw-bold">${user.username || "-"}</span>
+        <div class="text-muted" style="font-size:0.98em;">${
+          user.email || "-"
+        }</div>
+      </div>
+      <button class="btn btn-outline-primary btn-sm mt-2" id="change-password-btn"><i class="bi bi-key"></i> Сменить пароль</button>
+      <div id="profile-modal-alert" class="w-100 mt-2"></div>
+    </div>
+  `;
+  const footerHtml = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>`;
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    createModal(id, "Профиль пользователя", bodyHtml, footerHtml)
+  );
+  const modal = new bootstrap.Modal(document.getElementById(id));
+  modal.show();
+  // обработка выбора аватарки
+  document.querySelectorAll(".avatar-choice").forEach((el) => {
+    el.onclick = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        showToast("Необходима авторизация", "danger");
+        return;
+      }
+      // UI feedback
+      document
+        .querySelectorAll(".avatar-choice")
+        .forEach((e) => e.classList.remove("selected"));
+      el.classList.add("selected");
+      document.querySelector(".profile-avatar img").src = el.src;
+      // Сохраняем на сервере
+      try {
+        const resp = await import("./api.js").then((m) =>
+          m.apiUpdateProfile(token, { avatar: el.src })
+        );
+        if (resp.ok) {
+          localStorage.setItem("financemate_avatar", el.src);
+          import("./main.js").then((m) => m.updateProfileBtnAvatar());
+          showToast("Аватар обновлён", "success");
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          showToast(err.detail || "Ошибка обновления профиля", "danger");
+        }
+      } catch (e) {
+        showToast("Ошибка сети или сервера", "danger");
+      }
+    };
+  });
+  // При открытии — если есть user.avatar, показываем его и сохраняем в localStorage
+  if (user.avatar) {
+    document.querySelector(".profile-avatar img").src = user.avatar;
+    localStorage.setItem("financemate_avatar", user.avatar);
+    document.querySelectorAll(".avatar-choice").forEach((el) => {
+      el.classList.toggle("selected", el.src === user.avatar);
+    });
+  } else {
+    // если есть сохранённый аватар, показываем его
+    const savedAvatar = localStorage.getItem("financemate_avatar");
+    if (savedAvatar) {
+      document.querySelector(".profile-avatar img").src = savedAvatar;
+      document.querySelectorAll(".avatar-choice").forEach((el) => {
+        el.classList.toggle("selected", el.src === savedAvatar);
+      });
+    }
+  }
+  document.getElementById("change-password-btn").onclick = () => {
+    showChangePasswordModal();
+  };
+  document.getElementById(id).addEventListener("hidden.bs.modal", () => {
+    document.getElementById(id)?.remove();
+  });
+}
+
+// --- Модалка смены пароля ---
+export function showChangePasswordModal() {
+  const id = "changePasswordModal";
+  if (document.getElementById(id)) document.getElementById(id).remove();
+  const bodyHtml = `
+    <form id="change-password-form">
+      <div class="mb-3">
+        <label class="form-label">Текущий пароль</label>
+        <input type="password" class="form-control" name="old_password" required autocomplete="current-password">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Новый пароль</label>
+        <input type="password" class="form-control" name="new_password" required autocomplete="new-password">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Повторите новый пароль</label>
+        <input type="password" class="form-control" name="new_password2" required autocomplete="new-password">
+      </div>
+      <div id="change-password-alert"></div>
+    </form>
+  `;
+  const footerHtml = `<button type="submit" class="btn btn-success" form="change-password-form">Сменить</button><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>`;
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    createModal(id, "Смена пароля", bodyHtml, footerHtml)
+  );
+  const modal = new bootstrap.Modal(document.getElementById(id));
+  modal.show();
+  document.getElementById(id).addEventListener("hidden.bs.modal", () => {
+    document.getElementById(id)?.remove();
+  });
+  document.getElementById("change-password-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const old_password = form.old_password.value.trim();
+    const new_password = form.new_password.value.trim();
+    const new_password2 = form.new_password2.value.trim();
+    const alert = document.getElementById("change-password-alert");
+    clearAlert(alert);
+    if (!old_password || !new_password || !new_password2) {
+      showAlert(alert, "Заполните все поля", "warning");
+      return;
+    }
+    if (new_password !== new_password2) {
+      showAlert(alert, "Пароли не совпадают", "warning");
+      return;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showAlert(alert, "Необходима авторизация", "danger");
+      return;
+    }
+    try {
+      const resp = await import("./api.js").then((m) =>
+        m.apiChangePassword(token, old_password, new_password)
+      );
+      if (resp.ok) {
+        showAlert(alert, "Пароль успешно изменён", "success");
+        setTimeout(() => {
+          const modal = bootstrap.Modal.getInstance(
+            document.getElementById(id)
+          );
+          if (modal) modal.hide();
+        }, 1200);
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        showAlert(alert, err.detail || "Ошибка смены пароля", "danger");
+      }
+    } catch (e) {
+      showAlert(alert, "Ошибка сети или сервера", "danger");
+    }
+  };
+}

@@ -34,6 +34,7 @@ def update_exchange_rates():
                     )
                     existing_rate = existing.scalars().first()
                     if existing_rate:
+                        # Обновляем rate через setattr, чтобы избежать ошибок типов
                         setattr(existing_rate, "rate", Decimal(str(rate)))
                     else:
                         obj = ExchangeRate(currency=currency, rate=Decimal(str(rate)))

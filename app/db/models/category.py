@@ -18,7 +18,11 @@ class Category(Base):
     type: Mapped[SQLAlchemyEnum] = mapped_column(
         SQLAlchemyEnum(CategoryType), nullable=False
     )
-    parent_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    parent_id: Mapped[int] = mapped_column(
+        ForeignKey("categories.id", ondelete="CASCADE"), nullable=True
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    icon: Mapped[str] = mapped_column(nullable=True)
+    color: Mapped[str] = mapped_column(nullable=True)
 
     parent = relationship("Category", remote_side=[id], backref="subcategories")

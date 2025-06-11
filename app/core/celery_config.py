@@ -19,4 +19,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.exchangerate.update_exchange_rates",
         "schedule": crontab(minute=0, hour="*"),
     },
+    "delete_old_and_excess_notifications": {
+        "task": "app.tasks.notification.delete_old_and_excess_notifications",
+        "schedule": crontab(minute=30, hour=2),  # каждый день в 2:30 ночи
+        "args": (4, 20),  # 4 дня, максимум 20 уведомлений на пользователя
+    },
 }

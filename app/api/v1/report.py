@@ -28,13 +28,14 @@ async def category_summary(
 async def monthly_summary(
     base_currency: str = Query("RUB"),
     year: int = Query(...),
+    category_type: str = Query(None),
     db=Depends(get_async_session),
     current_user=Depends(get_current_user),
 ):
-
     return await get_monthly_report(
         db=db,
         user_id=current_user.id,
         base_currency=base_currency,
         year=year,
+        category_type=category_type,
     )

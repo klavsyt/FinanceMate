@@ -24,6 +24,8 @@ class CaregoryBase(BaseModel):
     parent_id: Optional[int] = Field(
         None, description="ID родительской категории (опционально)", examples=[2]
     )
+    icon: Optional[str] = Field(None, description="Иконка категории (bi-*)")
+    color: Optional[str] = Field(None, description="Цвет категории (hex или css)")
 
     @validator("parent_id")
     def parent_id_positive(cls, v):
@@ -40,6 +42,8 @@ class CategoryUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     type: Optional[CategoryType] = None
     parent_id: Optional[int] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
 
     @validator("parent_id")
     def parent_id_positive(cls, v):
