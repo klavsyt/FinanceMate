@@ -2,6 +2,7 @@
 // Логика авторизации и регистрации
 import { apiLogin, apiRegister } from "./api.js";
 import { showAlert, clearAlert, showToast } from "./ui.js";
+import { onAuthStateChanged } from "./main.js";
 
 export function setupAuth(onAuthSuccess) {
   const loginForm = document.getElementById("login-form");
@@ -51,6 +52,7 @@ export function setupAuth(onAuthSuccess) {
       mainSection.style.display = "block";
       showToast("Вход выполнен успешно!", "success");
       onAuthSuccess();
+      onAuthStateChanged(true);
     } else {
       const err = await response.json().catch(() => ({}));
       showAlert(errorMsg, "Ошибка входа: " + (err.detail || ""));
@@ -83,4 +85,5 @@ export function logout() {
   localStorage.removeItem("token");
   document.getElementById("auth-section").style.display = "block";
   document.getElementById("main-section").style.display = "none";
+  onAuthStateChanged(false);
 }

@@ -30,6 +30,8 @@ body[data-theme="dark"] {
   --btn-bg: #232e3a;
   --btn-border: #444b5a;
   --btn-color: #f3f3f3;
+  /* Добавим явный фон для body, чтобы navbar не сливался */
+  background: linear-gradient(120deg, #181a1b 0%, #23272f 100%) !important;
 }
 
 body {
@@ -185,8 +187,12 @@ body[data-theme="dark"] .dropdown-item:hover {
   color: #90caf9 !important;
 }
 body[data-theme="dark"] .navbar {
-  background: linear-gradient(90deg, #232e3a 0%, #23272f 100%) !important;
-  box-shadow: 0 4px 24px rgba(25, 118, 210, 0.13);
+  /* Сделаем navbar чуть темнее и с лёгкой прозрачностью для отделения */
+  background: linear-gradient(90deg, #798d96 0%, #23272f 100%) !important;
+  box-shadow: 0 6px 32px rgba(25, 118, 210, 0.18);
+  backdrop-filter: blur(2px);
+  border-bottom: 1.5px solid #232e3a;
+  border-radius: 0 !important;
 }
 body[data-theme="dark"] #toast-container .toast {
   background: #232e3a !important;
@@ -319,10 +325,20 @@ body[data-theme="dark"] #toast-container .toast {
   border: none;
   transition: box-shadow 0.2s;
 }
-.card:hover,
-#auth-section:hover,
-#main-section:hover {
-  box-shadow: 0 8px 32px rgba(13, 110, 253, 0.13), 0 2px 8px rgba(0, 0, 0, 0.07);
+.tab-content {
+  border-radius: 18px;
+}
+.navbar {
+  border-radius: 0 !important;
+}
+body[data-theme="dark"] .card,
+body[data-theme="dark"] #auth-section,
+body[data-theme="dark"] #main-section,
+body[data-theme="dark"] .tab-content {
+  border-radius: 22px;
+}
+body[data-theme="dark"] .navbar {
+  border-radius: 0 !important;
 }
 
 .btn,
@@ -1062,6 +1078,7 @@ body[data-theme="dark"] .notif-message {
     0 1.5px 6px rgba(0, 0, 0, 0.04);
   padding-top: 0.7rem;
   padding-bottom: 0.7rem;
+  border-radius: 0 !important;
 }
 .navbar .navbar-brand {
   font-size: 1.1rem !important;
@@ -1165,6 +1182,7 @@ body[data-theme="dark"] .notif-message {
 body[data-theme="dark"] .navbar {
   background: linear-gradient(90deg, #232e3a 0%, #23272f 100%) !important;
   box-shadow: 0 4px 24px rgba(25, 118, 210, 0.13);
+  border-radius: 0 !important;
 }
 body[data-theme="dark"] .nav-tabs {
   background: #232e3a;

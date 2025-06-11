@@ -24,7 +24,7 @@ async def create_budget_endpoint(
     try:
         return await create_budget(db, budget_in, current_user.id)
     except IntegrityError as exc:
-        if "uq_budget_user_category" in str(exc.orig):
+        if "uix_budget_user_category_period" in str(exc.orig):
             raise HTTPException(
                 status_code=409, detail="Бюджет для этой категории уже существует"
             )
@@ -54,10 +54,17 @@ async def update_budget_endpoint(
     """
     Update a budget by ID.
     """
-    updated_budget = await update_budget(db, budget_id, budget_in, current_user.id)
-    if not updated_budget:
-        raise HTTPException(status_code=404, detail="Бюджет не найден")
-    return updated_budget
+    try:
+        updated_budget = await update_budget(db, budget_id, budget_in, current_user.id)
+        if not updated_budget:
+            raise HTTPException(status_code=404, detail="Бюджет не найден")
+        return updated_budget
+    except IntegrityError as exc:
+        if "uix_budget_user_category_period" in str(exc.orig):
+            raise HTTPException(
+                status_code=409, detail="Бюджет для этой категории уже существует"
+            )
+        raise
 
 
 @router.delete("/{budget_id}/", response_model=BudgetOut)
@@ -76,6 +83,7 @@ async def delete_budget_endpoint(
         logging.warning(
             f"endpoint: NOT FOUND budget_id={budget_id}, user_id={getattr(current_user, 'id', None)}"
         )
+        raise HTTPException(status_code=404, detail="Бюджет не найден")
     return deleted_budget
 
 

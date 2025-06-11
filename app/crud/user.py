@@ -31,7 +31,7 @@ async def create_user(user_in: UserCreate, db: AsyncSession):
     if user is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username уже зарегистрирован",
+            detail="Имя пользователя уже зарегистрировано",
         )
 
     user = User(

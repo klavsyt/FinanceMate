@@ -1,5 +1,12 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import DateTime, func, Enum as SQLAlchemyEnum, ForeignKey, Numeric
+from sqlalchemy import (
+    DateTime,
+    func,
+    Enum as SQLAlchemyEnum,
+    ForeignKey,
+    Numeric,
+    UniqueConstraint,
+)
 from enum import Enum
 
 from app.db.base import Base
@@ -12,6 +19,11 @@ class BudgetType(str, Enum):
 
 class Budget(Base):
     __tablename__ = "budgets"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "category_id", "period", name="uix_budget_user_category_period"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     category_id: Mapped[int] = mapped_column(

@@ -102,9 +102,9 @@ function setupTabs() {
   });
 }
 
-document.getElementById("logout-btn").onclick = () => {
-  logout();
-};
+// document.getElementById("logout-btn").onclick = () => {
+//   logout();
+// };
 
 document.getElementById("profile-btn").onclick = async () => {
   const token = getToken();
@@ -125,32 +125,18 @@ document.getElementById("profile-btn").onclick = async () => {
 function updateProfileBtnAvatar() {
   const btn = document.getElementById("profile-btn");
   if (!btn) return;
-  const savedAvatar = localStorage.getItem("financemate_avatar");
-  if (savedAvatar) {
-    let img = btn.querySelector("img");
-    if (!img) {
-      img = document.createElement("img");
-      img.style.width = "28px";
-      img.style.height = "28px";
-      img.style.borderRadius = "50%";
-      img.style.objectFit = "cover";
-      img.style.background = "#f8fafc";
-      img.style.margin = "0";
-      img.style.padding = "0";
-      img.alt = "avatar";
-      // remove icon if present
-      const icon = btn.querySelector("i");
-      if (icon) icon.remove();
-      btn.prepend(img);
-    }
-    img.src = savedAvatar;
-  } else {
-    // если нет аватарки — показываем иконку
-    let icon = btn.querySelector("i");
-    if (!icon) {
-      btn.innerHTML = '<i class="bi bi-person-circle"></i>';
-    }
-  }
+  // Всегда показываем только иконку профиля
+  btn.innerHTML = '<i class="bi bi-person-circle"></i>';
+}
+
+function setNavbarAuthVisibility(isAuth) {
+  // Показывать/скрывать кнопки справа в navbar
+  const themeBtn = document.getElementById("theme-toggle");
+  const notifBtn = document.getElementById("notifications-btn");
+  const profileBtn = document.getElementById("profile-btn");
+  if (themeBtn) themeBtn.style.display = isAuth ? "" : "none";
+  if (notifBtn) notifBtn.style.display = isAuth ? "" : "none";
+  if (profileBtn) profileBtn.style.display = isAuth ? "" : "none";
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -173,6 +159,8 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   const token = getToken();
+  setNavbarAuthVisibility(!!token);
+
   if (token) {
     document.getElementById("auth-section").style.display = "none";
     document.getElementById("main-section").style.display = "block";
@@ -243,3 +231,27 @@ window.addEventListener("unhandledrejection", function (event) {
     import("./ui.js").then((m) => m.showNetworkError());
   }
 });
+
+// Обработчик для кнопки уведомлений в верхней панели
+const notificationsBtn = document.getElementById("notifications-btn");
+if (notificationsBtn) {
+  notificationsBtn.onclick = (e) => {
+    e.preventDefault();
+    // Активируем вкладку уведомлений и отображаем содержимое
+    [
+      "tab-reports",
+      "tab-transactions",
+      "tab-categories",
+      "tab-budgets",
+    ].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("active");
+    });
+    showSection("notifications-view");
+    renderNotifications(getToken());
+  };
+}
+
+export function onAuthStateChanged(isAuth) {
+  setNavbarAuthVisibility(isAuth);
+}

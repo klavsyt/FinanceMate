@@ -11,19 +11,21 @@ let budgetFilters = {
   sort: "limit_desc",
 };
 
-let cachedCategories = null;
+// Вместо let cachedCategories = null;
+// Используем window.FinanceMateCategoriesCache
+
 async function getCachedCategories(token) {
-  if (!cachedCategories) {
+  if (!window.FinanceMateCategoriesCache) {
     const categoriesResp = await import("./api.js").then((m) =>
       m.apiGetCategories(token)
     );
     if (categoriesResp.ok) {
-      cachedCategories = await categoriesResp.json();
+      window.FinanceMateCategoriesCache = await categoriesResp.json();
     } else {
-      cachedCategories = [];
+      window.FinanceMateCategoriesCache = [];
     }
   }
-  return cachedCategories;
+  return window.FinanceMateCategoriesCache;
 }
 
 export async function renderBudgets(token) {
@@ -227,21 +229,7 @@ async function loadBudgets(token) {
 function showBudgetModal(token) {
   (async () => {
     // Получаем список категорий для выпадающего списка
-    const categoriesResp = await import("./api.js").then((m) =>
-      m.apiGetCategories(token)
-    );
-    let categories = [];
-    if (!cachedCategories) {
-      const categoriesResp = await import("./api.js").then((m) =>
-        m.apiGetCategories(token)
-      );
-      if (categoriesResp.ok) {
-        categories = await categoriesResp.json();
-        cachedCategories = categories;
-      }
-    } else {
-      categories = cachedCategories;
-    }
+    let categories = await getCachedCategories(token);
     // Оставляем только категории-расходы
     categories = categories.filter((c) => c.type === "expense");
     const categoryOptions = categories
@@ -272,7 +260,7 @@ function showBudgetModal(token) {
                 </div>
                 <div class="mb-3">
                   <label class="form-label">Лимит</label>
-                  <input type="number" class="form-control" name="limit" required max="99999999.99" step="0.01">
+                  <input type="number" class="form-control" name="limit" required max="9999999.99" step="0.01">
                 </div>
                 <div class="mb-3">
                   <label class="form-label">Период</label>
@@ -297,7 +285,7 @@ function showBudgetModal(token) {
                 <div id="budget-modal-alert"></div>
               </div>
               <div class="modal-footer">
-                <button type="submit" class="btn btn-success">Сохранить бюджет</button>
+                <button type="submit" class="btn btn-success">Сохранить</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
               </div>
             </form>
@@ -321,14 +309,13 @@ function showBudgetModal(token) {
       if (!category_id) error = "Укажите категорию";
       else if (!limit || isNaN(limit) || limit <= 0)
         error = "Введите корректный лимит (> 0)";
-      else if (limit > 99999999.99)
-        error = "Максимальный лимит — 99 999 999.99";
+      else if (limit > 9999999.99) error = "Максимальный лимит — 9 999 999.99";
       else if (!period) error = "Выберите период";
       else if (!currency) error = "Выберите валюту";
       if (error) {
         form.limit.classList.toggle(
           "is-invalid",
-          limit > 99999999.99 || limit <= 0 || isNaN(limit)
+          limit > 9999999.99 || limit <= 0 || isNaN(limit)
         );
         showAlert(alert, error, "warning");
         return;
@@ -350,7 +337,7 @@ function showBudgetModal(token) {
       saveBtn.disabled = false;
       saveBtn.innerHTML = origBtnHtml;
       if (resp.ok) {
-        cachedCategories = null;
+        window.FinanceMateCategoriesCache = null;
         modal.hide();
         document.getElementById("budgetModal").remove();
         renderBudgets(token);
@@ -365,6 +352,9 @@ function showBudgetModal(token) {
             err.detail.includes("уже существует")
           ) {
             errText = "Бюджет для этой категории уже существует.";
+          } else if (resp.status === 500) {
+            errText =
+              "Внутренняя ошибка сервера. Попробуйте позже или обратитесь в поддержку.";
           } else if (Array.isArray(err.detail)) {
             errText = err.detail.map((e) => e.msg).join("; ");
           } else if (typeof err.detail === "string") {
@@ -464,16 +454,19 @@ async function showEditBudgetModal(token, budget, categories) {
     const alert = document.getElementById("edit-budget-modal-alert");
     clearAlert(alert);
     // Клиентская валидация
-    const category_id = form.category_id.value;
+    const category_id = Number(form.category_id.value);
     const limit = Number(form.limit.value);
-    const period = form.period.value;
-    const currency = form.currency.value;
+    const period = String(form.period.value).trim();
+    const currency = String(form.currency.value).trim().toUpperCase();
     let error = "";
-    if (!category_id) error = "Укажите категорию";
+    if (!category_id || isNaN(category_id) || category_id <= 0)
+      error = "Укажите категорию";
     else if (!limit || isNaN(limit) || limit <= 0)
       error = "Введите корректный лимит (> 0)";
-    else if (limit > 99999999.99) error = "Максимальный лимит — 99 999 999.99";
-    else if (!period) error = "Выберите период";
+    else if (limit > 9999999.99) error = "Максимальный лимит — 9 999 999.99";
+    else if (!period || (period !== "monthly" && period !== "yearly"))
+      error = "Выберите период";
+    else if (!currency || currency.length !== 3) error = "Выберите валюту";
     if (error) {
       showAlert(alert, error, "warning");
       return;
@@ -484,7 +477,7 @@ async function showEditBudgetModal(token, budget, categories) {
     saveBtn.innerHTML =
       '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Сохранение...';
     const data = {
-      category_id: Number(category_id),
+      category_id,
       limit,
       period,
       currency,
@@ -495,7 +488,7 @@ async function showEditBudgetModal(token, budget, categories) {
     saveBtn.disabled = false;
     saveBtn.innerHTML = origBtnHtml;
     if (resp.ok) {
-      cachedCategories = null;
+      window.FinanceMateCategoriesCache = null;
       modal.hide();
       // Безопасно удаляем модалку только если она существует
       const modalEl = document.getElementById("editBudgetModal");
@@ -503,17 +496,21 @@ async function showEditBudgetModal(token, budget, categories) {
       renderBudgets(token);
       showToast("Бюджет успешно обновлён!", "success");
     } else {
-      const err = await resp.json().catch(() => ({}));
-      showAlert(alert, "Ошибка: " + (err.detail || ""));
-      showToast("Ошибка обновления бюджета: " + (err.detail || ""), "danger");
+      let errText = "";
+      if (resp.status === 409) {
+        errText = "Бюджет для этой категории уже существует.";
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        errText = err.detail || "";
+      }
+      showAlert(alert, "Ошибка: " + errText);
+      showToast("Ошибка обновления бюджета: " + errText, "danger");
     }
   };
-  // Безопасно навешиваем обработчик закрытия модалки
-  const modalEl = document.getElementById("editBudgetModal");
-  if (modalEl) {
-    modalEl.addEventListener("hidden.bs.modal", () => {
-      const el = document.getElementById("editBudgetModal");
-      if (el) el.remove();
+  document
+    .getElementById("editBudgetModal")
+    .addEventListener("hidden.bs.modal", () => {
+      const modalEl = document.getElementById("editBudgetModal");
+      if (modalEl) modalEl.remove();
     });
-  }
 }

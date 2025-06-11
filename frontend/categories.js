@@ -14,17 +14,19 @@ let categoryFilters = {
   search: "",
   sort: "name_asc",
 };
-let cachedCategories = null;
+// Вместо let cachedCategories = null;
+// Используем window.FinanceMateCategoriesCache
+
 async function getCachedCategories(token) {
-  if (!cachedCategories) {
+  if (!window.FinanceMateCategoriesCache) {
     const response = await apiGetCategories(token, { limit: 1000, offset: 0 });
     if (response.ok) {
-      cachedCategories = await response.json();
+      window.FinanceMateCategoriesCache = await response.json();
     } else {
-      cachedCategories = [];
+      window.FinanceMateCategoriesCache = [];
     }
   }
-  return cachedCategories;
+  return window.FinanceMateCategoriesCache;
 }
 
 function setupFabAddCategoryHandler(token) {
@@ -192,8 +194,10 @@ async function loadCategories(token) {
           body: "Вы уверены, что хотите удалить эту категорию?",
           onConfirm: async () => {
             const resp = await apiDeleteCategory(token, btn.dataset.id);
-            if (resp.ok) loadCategories(token);
-            else {
+            if (resp.ok) {
+              window.FinanceMateCategoriesCache = null;
+              loadCategories(token);
+            } else {
               showAlert(alert, "Ошибка удаления");
               showToast("Ошибка удаления категории", "danger");
             }
@@ -204,7 +208,9 @@ async function loadCategories(token) {
     table.querySelectorAll(".btn-primary").forEach((btn) => {
       btn.onclick = async () => {
         const catId = Number(btn.getAttribute("data-edit-id"));
-        const cat = categories.find((c) => c.id === catId);
+        const cat = (window.FinanceMateCategoriesCache || []).find(
+          (c) => c.id === catId
+        );
         if (cat) await showEditCategoryModal(token, cat);
       };
     });
@@ -316,12 +322,6 @@ function showCategoryModal(token) {
                   </select>
                 </div>
                 <div class="mb-3">
-                  <label class="form-label">Родительская категория (необязательно)</label>
-                  <select class="form-select" name="parent_id">
-                    ${parentOptions}
-                  </select>
-                </div>
-                <div class="mb-3">
                   <label class="form-label">Иконка</label>
                   <div id="icon-grid">${getIconGrid(selectedIcon)}</div>
                   <input type="hidden" name="icon" value="${selectedIcon}">
@@ -403,15 +403,20 @@ function showCategoryModal(token) {
       const data = {
         name,
         type,
-        parent_id: form.parent_id.value ? Number(form.parent_id.value) : null,
         icon,
         color,
+        parent_id: null, // всегда отправлять parent_id (null если нет)
       };
+      if (form.parent_id) {
+        data.parent_id = form.parent_id.value
+          ? Number(form.parent_id.value)
+          : null;
+      }
       const resp = await apiCreateCategory(token, data);
       saveBtn.disabled = false;
       saveBtn.innerHTML = origBtnHtml;
       if (resp.ok) {
-        cachedCategories = null;
+        window.FinanceMateCategoriesCache = null;
         modal.hide();
         document.getElementById("categoryModal").remove();
         renderCategories(token);
@@ -474,12 +479,6 @@ async function showEditCategoryModal(token, category) {
                   <option value="income"${
                     category.type === "income" ? " selected" : ""
                   }>Доход</option>
-                </select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Родительская категория (необязательно)</label>
-                <select class="form-select" name="parent_id">
-                  ${parentOptions}
                 </select>
               </div>
               <div class="mb-3">
@@ -566,7 +565,6 @@ async function showEditCategoryModal(token, category) {
     const data = {
       name: form.name.value.trim(),
       type: form.type.value,
-      parent_id: form.parent_id.value ? Number(form.parent_id.value) : null,
       icon,
       color,
     };
@@ -587,7 +585,7 @@ async function showEditCategoryModal(token, category) {
     saveBtn.disabled = false;
     saveBtn.innerHTML = origBtnHtml;
     if (resp.ok) {
-      cachedCategories = null;
+      window.FinanceMateCategoriesCache = null;
       modal.hide();
       const modalEl = document.getElementById("editCategoryModal");
       if (modalEl) modalEl.remove();

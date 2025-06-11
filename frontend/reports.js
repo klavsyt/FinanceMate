@@ -26,19 +26,18 @@ function renderPeriodTabs(active) {
 let currentPeriod = "month";
 let customPeriod = { from: "", to: "" };
 let currentCategoryType = "expense"; // по умолчанию расходы
-let cachedCategories = null;
 async function getCachedCategories(token) {
-  if (!cachedCategories) {
+  if (!window.FinanceMateCategoriesCache) {
     const categoriesResp = await import("./api.js").then((m) =>
       m.apiGetCategories(token, { limit: 1000, offset: 0 })
     );
     if (categoriesResp.ok) {
-      cachedCategories = await categoriesResp.json();
+      window.FinanceMateCategoriesCache = await categoriesResp.json();
     } else {
-      cachedCategories = [];
+      window.FinanceMateCategoriesCache = [];
     }
   }
-  return cachedCategories;
+  return window.FinanceMateCategoriesCache;
 }
 
 // --- Вспомогательная функция для навешивания обработчиков вкладок ---
@@ -68,17 +67,17 @@ async function setupReportTabHandlers(token) {
     };
   });
   // Вкладки типа (Расходы/Доходы)
-  document.querySelectorAll("#type-tabs .nav-link").forEach((el) => {
+  document.querySelectorAll("#category-type-tabs .nav-link").forEach((el) => {
     el.onclick = (e) => {
       e.preventDefault();
       currentCategoryType = el.getAttribute("data-type");
       document.getElementById(
-        "type-tabs-bar"
-      ).innerHTML = `<ul class=\"nav nav-pills\" id=\"type-tabs\">\n        <li class=\"nav-item\"><a class=\"nav-link${
+        "category-type-tabs-bar"
+      ).innerHTML = `<ul class="nav nav-pills" id="category-type-tabs" style="width:100%;max-width:340px;">\n        <li class="nav-item flex-fill text-center"><a class="nav-link${
         currentCategoryType === "expense" ? " active" : ""
-      }\" href=\"#\" data-type=\"expense\">Расходы</a></li>\n        <li class=\"nav-item\"><a class=\"nav-link${
+      }" href="#" data-type="expense" style="width:100%">Расходы</a></li>\n        <li class="nav-item flex-fill text-center"><a class="nav-link${
         currentCategoryType === "income" ? " active" : ""
-      }\" href=\"#\" data-type=\"income\">Доходы</a></li>\n      </ul>`;
+      }" href="#" data-type="income" style="width:100%">Доходы</a></li>\n      </ul>`;
       setupReportTabHandlers(token); // повторно навесить обработчики!
       const year = new Date().getFullYear();
       const month =
@@ -128,14 +127,14 @@ export async function renderReports(token) {
           .join("")}
       </select>
     </div>
-    <div class="d-flex align-items-center gap-2 mb-3" id="type-tabs-bar">
-      <ul class="nav nav-pills no-horiz-scroll" id="type-tabs">
-        <li class="nav-item"><a class="nav-link${
+    <div class="d-flex align-items-center gap-2 mb-3" id="category-type-tabs-bar">
+      <ul class="nav nav-pills" id="category-type-tabs" style="width:100%;max-width:340px;">
+        <li class="nav-item flex-fill text-center"><a class="nav-link${
           currentCategoryType === "expense" ? " active" : ""
-        }" href="#" data-type="expense">Расходы</a></li>
-        <li class="nav-item"><a class="nav-link${
+        }" href="#" data-type="expense" style="width:100%">Расходы</a></li>
+        <li class="nav-item flex-fill text-center"><a class="nav-link${
           currentCategoryType === "income" ? " active" : ""
-        }" href="#" data-type="income">Доходы</a></li>
+        }" href="#" data-type="income" style="width:100%">Доходы</a></li>
       </ul>
       <!-- Desktop-only Add Transaction Button for Reports -->
       <button class="btn btn-success btn-custom-radius d-none d-md-inline ms-2" id="reports-add-transaction-btn-desktop"><i class="bi bi-plus"></i> Новая транзакция</button>

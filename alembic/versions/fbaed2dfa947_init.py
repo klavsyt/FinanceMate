@@ -1,8 +1,8 @@
-"""init schema
+"""init
 
-Revision ID: 76dce5d69ad8
+Revision ID: fbaed2dfa947
 Revises: 
-Create Date: 2025-06-10 22:39:48.850307
+Create Date: 2025-06-11 17:18:05.358891
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '76dce5d69ad8'
+revision: str = 'fbaed2dfa947'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -63,7 +63,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['parent_id'], ['categories.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
+    sa.UniqueConstraint('name', 'user_id', name='uix_category_name_user')
     )
     op.create_table('notifications',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -83,7 +83,8 @@ def upgrade() -> None:
     sa.Column('currency', sa.String(), nullable=False),
     sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'category_id', 'period', name='uix_budget_user_category_period')
     )
     op.create_table('transactions',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),

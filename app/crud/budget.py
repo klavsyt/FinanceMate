@@ -54,6 +54,7 @@ async def update_budget(
     for key, value in budget_update.dict().items():
         setattr(budget, key, value)
 
+    await db.flush()
     await db.commit()
     await db.refresh(budget)
     logger.info(

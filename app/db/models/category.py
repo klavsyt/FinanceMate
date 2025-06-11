@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import DateTime, func, Enum as SQLAlchemyEnum, ForeignKey
 from enum import Enum
+from sqlalchemy.schema import UniqueConstraint
 
 from app.db.base import Base
 
@@ -12,9 +13,13 @@ class CategoryType(str, Enum):
 
 class Category(Base):
     __tablename__ = "categories"
+    __table_args__ = (
+        UniqueConstraint("name", "user_id", name="uix_category_name_user"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(nullable=False)
+
     type: Mapped[SQLAlchemyEnum] = mapped_column(
         SQLAlchemyEnum(CategoryType), nullable=False
     )

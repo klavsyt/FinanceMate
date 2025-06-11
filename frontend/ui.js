@@ -172,6 +172,7 @@ export function showProfileModal(user) {
         }</div>
       </div>
       <button class="btn btn-outline-primary btn-sm mt-2" id="change-password-btn"><i class="bi bi-key"></i> Сменить пароль</button>
+      <button class="btn btn-outline-danger btn-sm mt-2" id="profile-logout-btn"><i class="bi bi-box-arrow-right"></i> Выйти</button>
       <div id="profile-modal-alert" class="w-100 mt-2"></div>
     </div>
   `;
@@ -233,6 +234,10 @@ export function showProfileModal(user) {
   }
   document.getElementById("change-password-btn").onclick = () => {
     showChangePasswordModal();
+  };
+  document.getElementById("profile-logout-btn").onclick = () => {
+    import("./auth.js").then((m) => m.logout());
+    modal.hide();
   };
   document.getElementById(id).addEventListener("hidden.bs.modal", () => {
     document.getElementById(id)?.remove();

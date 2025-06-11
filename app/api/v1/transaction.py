@@ -26,7 +26,8 @@ async def create_transaction_endpoint(
     user: User = Depends(get_current_user),
 ):
     transaction = await create_transaction(db, transaction_in, user.id)
-
+    if transaction is None:
+        raise HTTPException(status_code=400, detail="Ошибка при создании транзакции")
     return transaction
 
 
@@ -38,7 +39,7 @@ async def get_transaction_endpoint(
 ):
     transaction = await get_transaction(db, transaction_id, user)
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Ошибка при создании транзакции")
     return transaction
 
 
@@ -51,7 +52,7 @@ async def update_transaction_endpoint(
 ):
     updated_transaction = await update_transaction(db, transaction_id, transaction)
     if not updated_transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Ошибка при создании транзакции")
     return updated_transaction
 
 
@@ -63,7 +64,7 @@ async def delete_transaction_endpoint(
 ):
     deleted_transaction = await delete_transaction(db, transaction_id)
     if not deleted_transaction:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Ошибка при создании транзакции")
     return deleted_transaction
 
 

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.exchangerate import ExchangeRate
 
 
-API_URL = "https://open.er-api.com/v6/latest/USD"
+API_URL = "https://open.er-api.com/v6/latest"
 CURRENCIES = {"BYN", "USD", "RUB", "EUR"}
 
 
@@ -20,6 +20,12 @@ def update_exchange_rates():
     response.raise_for_status()
     data = response.json()
     rates = data.get("rates", {})
+
+    # Гарантируем, что BYN, USD, RUB, EUR всегда есть
+    rates["BYN"] = rates.get("BYN", 1.0)
+    rates["USD"] = rates.get("USD", 3.2)
+    rates["RUB"] = rates.get("RUB", 0.034)
+    rates["EUR"] = rates.get("EUR", 3.5)
 
     import asyncio
 

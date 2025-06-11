@@ -16,18 +16,17 @@ let txFilters = {
   sort: "date_desc",
   type: "expense", // по умолчанию показываем расходы
 };
-let cachedCategories = null;
 
 export async function setupFabAddTransactionHandler(token) {
   let categories = [];
-  if (!cachedCategories) {
+  if (!window.FinanceMateCategoriesCache) {
     const categoriesResp = await apiGetCategories(token);
     if (categoriesResp.ok) {
       categories = await categoriesResp.json();
-      cachedCategories = categories;
+      window.FinanceMateCategoriesCache = categories;
     }
   } else {
-    categories = cachedCategories;
+    categories = window.FinanceMateCategoriesCache;
   }
 
   // Visibility is handled by showSection in main.js. This function ensures handlers and styles.
@@ -67,8 +66,8 @@ export async function renderTransactions(token) {
   view.style.zIndex = "5"; // As set before, for layering within tab content
   view.style.position = "relative"; // As set before
 
-  let typeTabsHtml = `<div id="tx-type-tabs-bar" class="mb-2 d-flex justify-content-center">
-    <ul class="nav nav-pills" id="tx-type-tabs" style="width:100%;max-width:340px;">
+  let typeTabsHtml = `<div id="category-type-tabs-bar" class="mb-2 d-flex justify-content-center">
+    <ul class="nav nav-pills" id="category-type-tabs" style="width:100%;max-width:340px;">
       <li class="nav-item flex-fill text-center"><a class="nav-link${
         txFilters.type === "expense" ? " active" : ""
       }" href="#" data-type="expense" style="width:100%">Расходы</a></li>
@@ -96,14 +95,14 @@ export async function renderTransactions(token) {
   `;
 
   let categories = [];
-  if (!cachedCategories) {
+  if (!window.FinanceMateCategoriesCache) {
     const categoriesResp = await apiGetCategories(token);
     if (categoriesResp.ok) {
       categories = await categoriesResp.json();
-      cachedCategories = categories;
+      window.FinanceMateCategoriesCache = categories;
     }
   } else {
-    categories = cachedCategories;
+    categories = window.FinanceMateCategoriesCache;
   }
 
   const catSelect = document.getElementById("tx-filter-category");
@@ -143,19 +142,22 @@ export async function renderTransactions(token) {
     };
   }
 
-  document.querySelectorAll("#tx-type-tabs .nav-link").forEach((el) => {
+  // Обработчик для вкладок расходов/доходов
+  document.querySelectorAll("#category-type-tabs .nav-link").forEach((el) => {
     el.onclick = (e) => {
       e.preventDefault();
       const newType = el.getAttribute("data-type");
       if (txFilters.type !== newType) {
         txFilters.type = newType;
         txFilters.category = "";
-        document.querySelectorAll("#tx-type-tabs .nav-link").forEach((tab) => {
-          tab.classList.toggle(
-            "active",
-            tab.getAttribute("data-type") === newType
-          );
-        });
+        document
+          .querySelectorAll("#category-type-tabs .nav-link")
+          .forEach((tab) => {
+            tab.classList.toggle(
+              "active",
+              tab.getAttribute("data-type") === newType
+            );
+          });
         txPageOffset = 0;
         renderTransactions(token);
       }
@@ -181,14 +183,14 @@ async function loadTransactions(token) {
   clearAlert(alert);
 
   let categories = [];
-  if (!cachedCategories) {
+  if (!window.FinanceMateCategoriesCache) {
     const categoriesResp = await apiGetCategories(token);
     if (categoriesResp.ok) {
       categories = await categoriesResp.json();
-      cachedCategories = categories;
+      window.FinanceMateCategoriesCache = categories;
     }
   } else {
-    categories = cachedCategories;
+    categories = window.FinanceMateCategoriesCache;
   }
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c]));
   const response = await apiGetTransactions(token, {
@@ -295,18 +297,31 @@ async function loadTransactions(token) {
         .forEach((btn) => {
           btn.onclick = (e) => {
             const id = e.currentTarget.getAttribute("data-id");
-            confirmModal(`Удалить транзакцию #${id}?`, async () => {
-              const resp = await apiDeleteTransaction(token, id);
-              if (resp.ok) {
-                showToast("Транзакция удалена");
-                loadTransactions(token); // Reload
-              } else {
-                showAlert(
-                  document.getElementById("transactions-alert"),
-                  `Ошибка удаления: ${resp.statusText}`,
-                  "danger"
-                );
-              }
+            confirmModal({
+              title: `Удалить транзакцию #${id}?`,
+              body: "Это действие нельзя отменить.",
+              onConfirm: async () => {
+                try {
+                  const resp = await apiDeleteTransaction(token, id);
+                  if (resp.ok) {
+                    showToast("Транзакция удалена");
+                    loadTransactions(token); // Reload
+                  } else {
+                    const text = await resp.text();
+                    showAlert(
+                      document.getElementById("transactions-alert"),
+                      `Ошибка удаления: ${resp.statusText} ${text}`,
+                      "danger"
+                    );
+                  }
+                } catch (err) {
+                  showAlert(
+                    document.getElementById("transactions-alert"),
+                    `Ошибка JS при удалении: ${err.message}`,
+                    "danger"
+                  );
+                }
+              },
             });
           };
         });
@@ -317,24 +332,12 @@ async function loadTransactions(token) {
             const id = e.currentTarget.getAttribute("data-edit-id");
             const tx = txs.find((t) => String(t.id) === id);
             if (tx) {
-              showTransactionModal(token, categories, () =>
-                loadTransactions(token)
+              showTransactionModal(
+                token,
+                categories,
+                () => loadTransactions(token),
+                tx
               );
-              // Заполнить форму данными транзакции
-              document.getElementById("transaction-id").value = tx.id;
-              document.getElementById("transaction-amount").value = tx.amount;
-              document.getElementById("transaction-date").value =
-                tx.date.split("T")[0];
-              document.getElementById("transaction-comment").value = tx.comment;
-              // Установить категорию и тип
-              const cat = catMap[tx.category_id];
-              if (cat) {
-                document.getElementById("transaction-type").value = cat.type;
-                // Обновить список категорий для модалки, если нужно
-                updateCategoryOptionsForModal(cat.type, categories);
-                document.getElementById("transaction-category").value =
-                  tx.category_id;
-              }
             }
           };
         });
@@ -384,6 +387,7 @@ export function showTransactionModal(
   const commentInput = document.getElementById("transaction-comment");
   const modalTitle = document.getElementById("transactionModalLabel");
   const transactionIdInput = document.getElementById("transaction-id");
+  const currencySelect = document.getElementById("transaction-currency");
 
   // Set date to today by default for new transactions
   if (!transactionToEdit) {
@@ -417,6 +421,9 @@ export function showTransactionModal(
     // Trigger change on typeSelect to populate categories correctly and select the category
     typeSelect.dispatchEvent(new Event("change"));
     categorySelect.value = transactionToEdit.category_id;
+    if (transactionToEdit.currency && currencySelect) {
+      currencySelect.value = transactionToEdit.currency;
+    }
   } else {
     modalTitle.textContent = "Новая транзакция";
     transactionIdInput.value = "";
@@ -424,6 +431,9 @@ export function showTransactionModal(
     const today = new Date().toISOString().split("T")[0]; // Also set date again after reset
     dateInput.value = today;
     typeSelect.dispatchEvent(new Event("change")); // Populate categories for default type
+    if (currencySelect) {
+      currencySelect.value = getCurrency();
+    }
   }
 
   form.onsubmit = async (e) => {
@@ -437,7 +447,7 @@ export function showTransactionModal(
       document.getElementById("transaction-category").value
     );
     const comment = document.getElementById("transaction-comment").value.trim();
-    const currency = getCurrency();
+    const currency = currencySelect ? currencySelect.value : getCurrency();
 
     if (!category_id) {
       alert("Пожалуйста, выберите категорию.");
@@ -461,21 +471,34 @@ export function showTransactionModal(
     };
 
     try {
-      const response = await apiCreateTransaction(token, transactionData, id);
-      if (response.ok) {
-        showToast(id ? "Транзакция обновлена" : "Транзакция добавлена");
-        modal.hide();
-        if (onSave) onSave();
+      let response;
+      if (transactionToEdit && id) {
+        // Редактирование
+        const { apiEditTransaction } = await import("./api.js");
+        response = await apiEditTransaction(token, id, transactionData);
       } else {
-        const errorData = await response.json();
-        alert(`Ошибка: ${errorData.detail || response.statusText}`);
+        // Создание
+        response = await apiCreateTransaction(token, transactionData);
+      }
+      if (response.ok) {
+        showToast("Транзакция сохранена");
+        modal.hide();
+        onSave();
+      } else {
+        showAlert(
+          document.getElementById("transactions-alert"),
+          `Ошибка сохранения транзакции: ${response.statusText}`,
+          "danger"
+        );
       }
     } catch (error) {
-      console.error("Failed to save transaction:", error);
-      alert("Произошла ошибка при сохранении транзакции.");
+      showAlert(
+        document.getElementById("transactions-alert"),
+        `Ошибка сохранения транзакции: ${error.message}`,
+        "danger"
+      );
     }
   };
+
   modal.show();
 }
-
-// Initial load is handled by main.js calling renderTransactions via tab setup

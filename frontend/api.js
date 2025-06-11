@@ -196,6 +196,20 @@ export async function apiEditBudget(token, id, data) {
   });
 }
 
+export async function apiEditTransaction(token, id, data) {
+  return fetchWithRefresh(
+    API_BASE + `/api/v1/transaction/transactions/${id}/`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+}
+
 export async function fetchWithRefresh(url, options = {}) {
   let token = localStorage.getItem("token");
   if (!options.headers) options.headers = {};
