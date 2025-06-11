@@ -27,6 +27,12 @@ jobs:
         image: redis:7
         ports:
           - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,7 +45,15 @@ jobs:
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
-          echo "export PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pypoetry
+            .venv
+          key: poetry-${{ hashFiles('pyproject.toml') }}
 
       - name: Install dependencies
         run: |
@@ -69,22 +83,13 @@ jobs:
           TEST_SYNC_DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5433/finance_db_test
           EOF
 
-      - name: Install docker-compose
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
 
-      - name: Start Docker services
+      - name: Wait for services
         run: |
-          docker-compose up -d db_test redis
-
-      - name: Wait for Postgres
-        run: |
-          for i in {1..20}; do
-            nc -z localhost 5433 && echo "Postgres is up!" && break
-            echo "Waiting for Postgres..."
-            sleep 3
-          done
+          echo "Waiting for services to be ready..."
+          while ! nc -z localhost 5433; do sleep 1; done
+          while ! nc -z localhost 6379; do sleep 1; done
+          echo "All services are ready!"
 
       - name: Run tests
         run: |
