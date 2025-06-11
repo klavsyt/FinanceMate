@@ -13,7 +13,7 @@ env:
   # Production environment
   DATABASE_URL: "postgresql+asyncpg://postgres:postgres@db:5432/finance_db"
   SYNC_DATABASE_URL: "postgresql+psycopg2://postgres:postgres@db:5432/finance_db"
-  SECRET_KEY: "your-production-secret-key"  # Замените на реальный или используйте secrets
+  SECRET_KEY: "your-production-secret-key"
   ALGORITHM: "HS256"
   ACCESS_TOKEN_EXPIRE_MINUTES: "30"
   REFRESH_TOKEN_EXPIRE_DAYS: "5"
@@ -100,25 +100,28 @@ jobs:
           curl -fsSL https://github.com/docker/compose/releases/download/${{ env.DOCKER_COMPOSE_VERSION }}/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
 
-      - name: Build and start containers
+      - name: Create env file
         run: |
-          docker-compose --env-file <(echo "
-            DATABASE_URL=$DATABASE_URL
-            SYNC_DATABASE_URL=$SYNC_DATABASE_URL
-            SECRET_KEY=$SECRET_KEY
-            ALGORITHM=$ALGORITHM
-            ACCESS_TOKEN_EXPIRE_MINUTES=$ACCESS_TOKEN_EXPIRE_MINUTES
-            REFRESH_TOKEN_EXPIRE_DAYS=$REFRESH_TOKEN_EXPIRE_DAYS
-            REDIS_URL=$REDIS_URL
-            CORS_ORIGINS=$CORS_ORIGINS
-            TEST_DATABASE_URL=$TEST_DATABASE_URL
-            TEST_SYNC_DATABASE_URL=$TEST_SYNC_DATABASE_URL
-            TEST_SECRET_KEY=$TEST_SECRET_KEY
-            TEST_ALGORITHM=$TEST_ALGORITHM
-            TEST_ACCESS_TOKEN_EXPIRE_MINUTES=$TEST_ACCESS_TOKEN_EXPIRE_MINUTES
-            TEST_REFRESH_TOKEN_EXPIRE_DAYS=$TEST_REFRESH_TOKEN_EXPIRE_DAYS
-            TEST_REDIS_URL=$TEST_REDIS_URL
-          ") up -d --build
+          cat <<EOF > .env
+          DATABASE_URL=$DATABASE_URL
+          SYNC_DATABASE_URL=$SYNC_DATABASE_URL
+          SECRET_KEY=$SECRET_KEY
+          ALGORITHM=$ALGORITHM
+          ACCESS_TOKEN_EXPIRE_MINUTES=$ACCESS_TOKEN_EXPIRE_MINUTES
+          REFRESH_TOKEN_EXPIRE_DAYS=$REFRESH_TOKEN_EXPIRE_DAYS
+          REDIS_URL=$REDIS_URL
+          CORS_ORIGINS=$CORS_ORIGINS
+          TEST_DATABASE_URL=$TEST_DATABASE_URL
+          TEST_SYNC_DATABASE_URL=$TEST_SYNC_DATABASE_URL
+          TEST_SECRET_KEY=$TEST_SECRET_KEY
+          TEST_ALGORITHM=$TEST_ALGORITHM
+          TEST_ACCESS_TOKEN_EXPIRE_MINUTES=$TEST_ACCESS_TOKEN_EXPIRE_MINUTES
+          TEST_REFRESH_TOKEN_EXPIRE_DAYS=$TEST_REFRESH_TOKEN_EXPIRE_DAYS
+          TEST_REDIS_URL=$TEST_REDIS_URL
+          EOF
+
+      - name: Build and start containers
+        run: docker-compose up -d --build
 
       - name: Apply migrations to main DB
         run: docker-compose exec app alembic upgrade head
