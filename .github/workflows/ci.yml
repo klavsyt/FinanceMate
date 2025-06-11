@@ -87,8 +87,8 @@ jobs:
         run: |
           echo "Waiting for services to be ready..."
           for i in {1..60}; do
-            nc -z db_test 5432 && nc -z localhost 6379 && echo "All services are ready!" && exit 0
-            echo "Waiting for db_test:5432 and localhost:6379..."
+            nc -z localhost 5433 && nc -z localhost 6379 && echo "All services are ready!" && exit 0
+            echo "Waiting for localhost:5433 and localhost:6379..."
             sleep 2
           done
           echo "Timeout waiting for services!" && exit 1
