@@ -91,18 +91,10 @@ jobs:
           while ! nc -z localhost 6379; do sleep 1; done
           echo "All services are ready!"
 
-      - name: Start app container
-        run: |
-          docker-compose up -d app
-
-      - name: Run Alembic migrations for main DB
-        run: |
-          docker-compose exec app alembic upgrade head
-
       - name: Run Alembic migrations for test DB
         run: |
-          docker-compose exec app bash -c 'DATABASE_URL=$TEST_DATABASE_URL alembic upgrade head'
+          poetry run alembic upgrade head
 
       - name: Run tests
         run: |
-          docker-compose exec app poetry run pytest tests
+          poetry run pytest tests
