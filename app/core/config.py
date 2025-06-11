@@ -2,6 +2,12 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 
+# Определяем, какой env-файл использовать
+if any(k.startswith("PYTEST_CURRENT_TEST") for k in os.environ.keys()):
+    _env_file = ".env.test"
+else:
+    _env_file = ".env"
+
 
 class Settings(BaseSettings):
     database_url: str = os.getenv(
@@ -17,7 +23,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     class Config:
-        env_file = ".env"
+        env_file = _env_file
         extra = "ignore"
 
 

@@ -1,11 +1,17 @@
 import os
 
+os.environ["REDIS_URL"] = "redis://localhost:6379/0"
+from dotenv import load_dotenv
+
+load_dotenv(".env.test", override=True)
+
 os.environ["DATABASE_URL"] = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@db_test:5432/finance_db_test",
+    "postgresql+asyncpg://postgres:postgres@localhost:5433/finance_db_test",
 )
-os.environ["SYNC_DATABASE_URL"] = (
-    "postgresql+psycopg2://postgres:postgres@db_test:5432/finance_db_test"
+os.environ["SYNC_DATABASE_URL"] = os.getenv(
+    "TEST_SYNC_DATABASE_URL",
+    "postgresql+psycopg2://postgres:postgres@localhost:5433/finance_db_test",
 )
 
 import pytest_asyncio

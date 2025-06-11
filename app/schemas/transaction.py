@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from decimal import Decimal
 from datetime import date as date_d
 
@@ -33,6 +33,13 @@ class TransactionBase(BaseModel):
     category_id: int = Field(
         ..., gt=0, description="ID категории транзакции", examples=[1]
     )
+
+    @validator("date", pre=True)
+    def ensure_date(cls, v):
+        # Accept both date and datetime, always return date
+        if hasattr(v, "date"):
+            return v.date()
+        return v
 
 
 class TransactionCreate(TransactionBase):
