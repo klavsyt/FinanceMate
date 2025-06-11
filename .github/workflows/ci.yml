@@ -83,13 +83,15 @@ jobs:
           TEST_SYNC_DATABASE_URL=postgresql+psycopg2://postgres:postgres@db_test:5432/finance_db_test
           EOF
 
-
       - name: Wait for services
         run: |
           echo "Waiting for services to be ready..."
-          while ! nc -z localhost 5433; do sleep 1; done
-          while ! nc -z localhost 6379; do sleep 1; done
-          echo "All services are ready!"
+          for i in {1..60}; do
+            nc -z db_test 5432 && nc -z localhost 6379 && echo "All services are ready!" && exit 0
+            echo "Waiting for db_test:5432 and localhost:6379..."
+            sleep 2
+          done
+          echo "Timeout waiting for services!" && exit 1
 
       - name: Run Alembic migrations for test DB
         run: |
