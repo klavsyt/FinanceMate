@@ -23,26 +23,18 @@ from app.api.v1.report import router as report_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("financemate")
 
-# Определяем окружение
+
 ENV = os.getenv("ENV", "production").lower()
 IS_PROD = ENV == "production"
 
-# Sentry DSN только из переменной окружения
+
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN", None),
-    # Add data like request headers and IP for users,
-    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
     send_default_pii=True,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for tracing.
     traces_sample_rate=1.0,
-    # Set profile_session_sample_rate to 1.0 to profile 100%
-    # of profile sessions.
     profile_session_sample_rate=1.0,
-    # Set profile_lifecycle to "trace" to automatically
-    # run the profiler on when there is an active transaction
     profile_lifecycle="trace",
-    environment=os.getenv("SENTRY_ENV", ENV),  # <-- добавлено
+    environment=os.getenv("SENTRY_ENV", ENV),
 )
 
 app = FastAPI(
@@ -55,8 +47,7 @@ app = FastAPI(
 )
 
 Instrumentator().instrument(app).expose(app)
-# CORS settings
-# CORS: только нужные домены в production
+
 if IS_PROD:
     allowed_origins = (
         os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
@@ -166,9 +157,3 @@ async def validation_exception_handler(request: Request, exc: FastAPIValidationE
 def healthcheck():
     """Healthcheck endpoint for monitoring and load balancers."""
     return {"status": "ok"}
-
-
-# Пример ограничения для любого роутера:
-# @app.get("/some-protected-endpoint", dependencies=[Depends(RateLimiter(times=10, seconds=60))])
-# def some_endpoint():
-#     return {"msg": "ok"}
