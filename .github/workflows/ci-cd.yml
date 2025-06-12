@@ -25,8 +25,8 @@ jobs:
         ports:
           - 6379:6379
     env:
-      DATABASE_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/testdb
-      SYNC_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/finance_db_test
+      SYNC_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/finance_db_test
       REDIS_URL: redis://localhost:6379/0
       SECRET_KEY: testsecretkey
       ENV: test
